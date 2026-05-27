@@ -60,7 +60,14 @@ async function removeExpiredEvents() {
         if (!date || !time) return;
         try {
             const isoDate = toISODate(date);
-            const timeStr = String(time).includes(':') ? String(time) : '00:00';
+            let timeStr = String(time);
+            // Handle ExcelJS decimal time format (e.g. 0.6875 = 16:30)
+            if (!timeStr.includes(':')) {
+                const totalMinutes = Math.round(parseFloat(timeStr) * 24 * 60);
+                const h = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+                const m = String(totalMinutes % 60).padStart(2, '0');
+                timeStr = `${h}:${m}`;
+            }
             if (new Date(`${isoDate}T${timeStr}:00`) < now) toRemove.push(i);
         } catch {}
     });
