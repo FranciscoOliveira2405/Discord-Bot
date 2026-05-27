@@ -11,9 +11,6 @@ module.exports = {
             const deleted = await interaction.channel.bulkDelete(amount, true);
             const reply = await interaction.reply({ content: `✅ Deleted **${deleted.size}** message${deleted.size !== 1 ? 's' : ''}.`, ephemeral: false, fetchReply: true });
             setTimeout(() => reply.delete().catch(() => {}), 5_000);
-        } catch (err) {
-            console.error(err);
-            await interaction.reply({ content: '❌ Could not delete messages. Messages older than 14 days cannot be bulk deleted.', ephemeral: true });
-        }
+        } catch (err) { console.error(err); await interaction.reply({ content: '❌ Could not delete messages. Messages older than 14 days cannot be bulk deleted.', ephemeral: true }); }
     }
 };

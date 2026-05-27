@@ -1,6 +1,5 @@
 const { getSchedules } = require('../excelManager');
-const { getTimezones } = require('../excelManager');
-const { LOGO, DIVIDER, TYPE_EMOJIS, normalizeDate } = require('../constants');
+const { DIVIDER, TYPE_EMOJIS, TYPE_COLORS, TYPE_LABELS, normalizeDate, toUnixTimestamp } = require('../constants');
 const { buildTimezoneField } = require('./timezoneManager');
 const path = require('path');
 const fs = require('fs');
@@ -15,7 +14,12 @@ function saveMessageId(id) { try { fs.writeFileSync(SCHEDULE_MESSAGE_FILE, JSON.
 async function buildScheduleEmbed() {
     const { EmbedBuilder } = require('discord.js');
     const schedules = await getSchedules();
-    const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'v3xys — Upcoming Schedule', iconURL: LOGO }).setFooter({ text: 'v3xys — Auto-updated', iconURL: LOGO }).setTimestamp();
+
+    const embed = new EmbedBuilder()
+        .setColor(0xE74C3C)
+        .setAuthor({ name: 'Upcoming Schedule' })
+        .setFooter({ text: 'Auto-updated' })
+        .setTimestamp();
 
     if (!schedules || schedules.length === 0) {
         embed.setDescription(`${DIVIDER}\n📭  No events scheduled.\n${DIVIDER}`);

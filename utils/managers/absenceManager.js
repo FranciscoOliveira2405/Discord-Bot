@@ -1,5 +1,5 @@
 const { getAbsences } = require('../excelManager');
-const { LOGO, DIVIDER } = require('../constants');
+const { DIVIDER } = require('../constants');
 const path = require('path');
 const fs = require('fs');
 
@@ -13,12 +13,17 @@ function saveMessageId(id) { try { fs.writeFileSync(ABSENCE_MESSAGE_FILE, JSON.s
 async function buildAbsenceEmbed() {
     const { EmbedBuilder } = require('discord.js');
     const absences = await getAbsences();
-    const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'v3xys — Player Absences', iconURL: LOGO }).setFooter({ text: 'v3xys — Auto-updated', iconURL: LOGO }).setTimestamp();
+    const embed = new EmbedBuilder()
+        .setColor(0xE74C3C)
+        .setAuthor({ name: 'Player Absences' })
+        .setFooter({ text: 'Auto-updated' })
+        .setTimestamp();
 
     if (!absences || absences.length === 0) {
         embed.setDescription(`${DIVIDER}\n✅  No absences reported. Everyone is available!\n${DIVIDER}`);
         return embed;
     }
+
     const grouped = {};
     for (const a of absences) {
         const key = String(a.discordTag);
@@ -26,11 +31,13 @@ async function buildAbsenceEmbed() {
         const dateStr = a.date ? (typeof a.date === 'object' ? a.date.toISOString().split('T')[0] : String(a.date)) : 'Unknown';
         grouped[key].entries.push({ dateStr, reason: a.reason && a.reason !== 'N/A' ? a.reason : 'No reason given' });
     }
-    const total = absences.length, players = Object.keys(grouped).length;
+
+    const total = absences.length;
     const blocks = Object.values(grouped).map(({ ign, discordTag, entries }) => {
         return `💤  **${ign}**  ·  \`${discordTag}\`\n${entries.map(e => `📅  ${e.dateStr}  —  ${e.reason}`).join('\n')}`;
     });
-    let desc = `**${total}** absence${total !== 1 ? 's' : ''} across **${players}** player${players !== 1 ? 's' : ''}\n${DIVIDER}\n`;
+
+    let desc = `**${total}** absence${total !== 1 ? 's' : ''}\n${DIVIDER}\n`;
     desc += blocks.join(`\n${DIVIDER}\n`) + `\n${DIVIDER}`;
     embed.setDescription(desc);
     return embed;

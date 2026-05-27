@@ -4,10 +4,7 @@ const { hasPerms } = require('../../utils/constants');
 module.exports = {
     data: new SlashCommandBuilder().setName('slowmode').setDescription('Set slowmode on this channel')
         .addStringOption(o => o.setName('duration').setDescription('Slowmode duration').setRequired(true)
-            .addChoices(
-                { name: 'Off', value: '0' }, { name: '5 seconds', value: '5' }, { name: '10 seconds', value: '10' },
-                { name: '30 seconds', value: '30' }, { name: '1 minute', value: '60' }, { name: '5 minutes', value: '300' },
-                { name: '10 minutes', value: '600' })),
+            .addChoices({ name: 'Off', value: '0' }, { name: '5 seconds', value: '5' }, { name: '10 seconds', value: '10' }, { name: '30 seconds', value: '30' }, { name: '1 minute', value: '60' }, { name: '5 minutes', value: '300' }, { name: '10 minutes', value: '600' })),
     async execute(interaction) {
         if (!hasPerms(interaction)) return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
         const seconds = parseInt(interaction.options.getString('duration'));

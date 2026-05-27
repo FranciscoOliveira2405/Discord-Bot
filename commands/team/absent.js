@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { addAbsence, removeAbsence, getRoster } = require('../../utils/excelManager');
 const { updateAbsenceMessage } = require('../../utils/managers/absenceManager');
-const { LOGO, DIVIDER, hasPerms } = require('../../utils/constants');
+const { DIVIDER, hasPerms } = require('../../utils/constants');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -33,7 +33,7 @@ module.exports = {
                 let desc = `${DIVIDER}\n👤  **${ign}**  ·  \`${user.tag}\`\n📅  ${date}\n`;
                 if (reason !== 'N/A') desc += `${DIVIDER}\n📝  ${reason}\n`;
                 desc += DIVIDER;
-                const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'ABSENCES — PLAYER MARKED ABSENT', iconURL: LOGO }).setDescription(desc).setFooter({ text: 'v3xys 💪', iconURL: LOGO }).setTimestamp();
+                const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'ABSENCE RECORDED' }).setDescription(desc).setFooter({ text: `Added by ${interaction.user.tag}` }).setTimestamp();
                 const sent = await interaction.reply({ embeds: [embed], ephemeral: false, fetchReply: true });
                 setTimeout(() => sent.delete().catch(() => {}), 30_000);
             } catch (err) { console.error(err); await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }); }
@@ -46,7 +46,7 @@ module.exports = {
                 if (!removed) return interaction.reply({ content: `❌ No absence found for **${user.tag}**.`, ephemeral: true });
                 await updateAbsenceMessage(interaction.guild, false);
                 let desc = `${DIVIDER}\n👤  \`${user.tag}\`'s absence removed.\n${DIVIDER}`;
-                const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'ABSENCES — ABSENCE REMOVED', iconURL: LOGO }).setDescription(desc).setFooter({ text: 'v3xys 💪', iconURL: LOGO }).setTimestamp();
+                const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'ABSENCE REMOVED' }).setDescription(desc).setFooter({ text: `Removed by ${interaction.user.tag}` }).setTimestamp();
                 const sent = await interaction.reply({ embeds: [embed], ephemeral: false, fetchReply: true });
                 setTimeout(() => sent.delete().catch(() => {}), 30_000);
             } catch (err) { console.error(err); await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }); }
