@@ -2,8 +2,12 @@ const { SlashCommandBuilder } = require('discord.js');
 const { hasPerms } = require('../../utils/constants');
 
 module.exports = {
-    data: new SlashCommandBuilder().setName('clear').setDescription('Delete messages from this channel')
+    data: new SlashCommandBuilder()
+        .setName('clear')
+        .setDescription('Delete messages from this channel')
+        .setDefaultMemberPermissions(0)
         .addIntegerOption(o => o.setName('amount').setDescription('Number of messages (1-100)').setRequired(false).setMinValue(1).setMaxValue(100)),
+
     async execute(interaction) {
         if (!hasPerms(interaction)) return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
         const amount = interaction.options.getInteger('amount') || 10;

@@ -36,14 +36,23 @@ function hasPerms(interaction) {
     return interaction.member.roles.cache.some(r => r.name === 'OWNER' || r.name === 'MANAGERS');
 }
 
+function hasTeamPerms(interaction) {
+    return interaction.member.roles.cache.some(r => r.name === 'OWNER' || r.name === 'MANAGERS' || r.name === 'TEAM');
+}
+
 function toUnixTimestamp(date, time) {
     try {
         let day, month, year;
         const dateStr = String(date);
-        if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) { [day, month, year] = dateStr.split('-').map(Number); year = 2000 + year; }
-        else if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) { [year, month, day] = dateStr.split('/').map(Number); }
-        else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { [year, month, day] = dateStr.split('-').map(Number); }
-        else return null;
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+            [day, month, year] = dateStr.split('/').map(Number);
+        } else if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) {
+            [day, month, year] = dateStr.split('-').map(Number); year = 2000 + year;
+        } else if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
+            [year, month, day] = dateStr.split('/').map(Number);
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            [year, month, day] = dateStr.split('-').map(Number);
+        } else return null;
         const [hours, minutes] = String(time).split(':').map(Number);
         return Math.floor(new Date(year, month - 1, day, hours, minutes, 0).getTime() / 1000);
     } catch { return null; }
@@ -52,12 +61,22 @@ function toUnixTimestamp(date, time) {
 function normalizeDate(date) {
     try {
         const dateStr = String(date);
-        if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
         if (typeof date === 'object' && date instanceof Date) {
-            return `${String(date.getDate()).padStart(2,'0')}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getFullYear()).slice(-2)}`;
+            return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()}`;
         }
-        if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) { const [y,m,d] = dateStr.split('/'); return `${d}-${m}-${String(y).slice(-2)}`; }
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { const [y,m,d] = dateStr.split('-'); return `${d}-${m}-${String(y).slice(-2)}`; }
+        if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) {
+            const [d,m,y] = dateStr.split('-');
+            return `${d}/${m}/20${y}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            const [y,m,d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+        if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
+            const [y,m,d] = dateStr.split('/');
+            return `${d}/${m}/${y}`;
+        }
         return dateStr;
     } catch { return String(date); }
 }
@@ -65,7 +84,14 @@ function normalizeDate(date) {
 function toISODate(date) {
     try {
         const dateStr = String(date);
-        if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) { const [d,m,y] = dateStr.split('-'); return `20${y}-${m}-${d}`; }
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+            const [d,m,y] = dateStr.split('/');
+            return `${y}-${m}-${d}`;
+        }
+        if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) {
+            const [d,m,y] = dateStr.split('-');
+            return `20${y}-${m}-${d}`;
+        }
         if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) return dateStr.replace(/\//g, '-');
         if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
         if (typeof date === 'object' && date instanceof Date) return date.toISOString().split('T')[0];
@@ -73,4 +99,4 @@ function toISODate(date) {
     } catch { return String(date); }
 }
 
-module.exports = { LOGO, DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, ROLE_EMOJIS, ALL_ROLES, STATUS_INDICATORS, hasPerms, toUnixTimestamp, normalizeDate, toISODate };
+module.exports = { LOGO, DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, ROLE_EMOJIS, ALL_ROLES, STATUS_INDICATORS, hasPerms, hasTeamPerms, toUnixTimestamp, normalizeDate, toISODate };

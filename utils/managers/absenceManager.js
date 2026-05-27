@@ -13,11 +13,7 @@ function saveMessageId(id) { try { fs.writeFileSync(ABSENCE_MESSAGE_FILE, JSON.s
 async function buildAbsenceEmbed() {
     const { EmbedBuilder } = require('discord.js');
     const absences = await getAbsences();
-    const embed = new EmbedBuilder()
-        .setColor(0xE74C3C)
-        .setAuthor({ name: 'Player Absences' })
-        .setFooter({ text: 'Auto-updated' })
-        .setTimestamp();
+    const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'Player Absences' }).setFooter({ text: 'Auto-updated' }).setTimestamp();
 
     if (!absences || absences.length === 0) {
         embed.setDescription(`${DIVIDER}\n✅  No absences reported. Everyone is available!\n${DIVIDER}`);
@@ -52,11 +48,11 @@ async function updateAbsenceMessage(guild, pingTeam = false) {
         try {
             const existing = await channel.messages.fetch(storedId);
             await existing.edit({ content: '', embeds: [embed] });
-            if (pingTeam) { const role = guild.roles.cache.find(r => r.name === 'team'); if (role) { const p = await channel.send({ content: `${role}` }); setTimeout(() => p.delete().catch(() => {}), 30_000); } }
+            if (pingTeam) { const role = guild.roles.cache.find(r => r.name === 'TEAM'); if (role) { const p = await channel.send({ content: `${role}` }); setTimeout(() => p.delete().catch(() => {}), 30_000); } }
             return;
         } catch {}
     }
-    const role = pingTeam ? guild.roles.cache.find(r => r.name === 'team') : null;
+    const role = pingTeam ? guild.roles.cache.find(r => r.name === 'TEAM') : null;
     const sent = await channel.send({ content: role ? `${role}` : '', embeds: [embed] });
     saveMessageId(sent.id);
 }

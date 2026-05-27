@@ -5,7 +5,10 @@ const { DIVIDER, hasPerms } = require('../../utils/constants');
 const { updateScheduleMessage } = require('../../utils/managers/scheduleManager');
 
 module.exports = {
-    data: new SlashCommandBuilder().setName('timezone').setDescription('Manage timezones')
+    data: new SlashCommandBuilder()
+        .setName('timezone')
+        .setDescription('Manage timezones')
+        .setDefaultMemberPermissions(0)
         .addSubcommand(sub => sub.setName('add').setDescription('Add a timezone')
             .addStringOption(o => o.setName('label').setDescription('Name (e.g. Germany)').setRequired(true))
             .addStringOption(o => o.setName('offset').setDescription('GMT offset (e.g. GMT+2)').setRequired(true)))

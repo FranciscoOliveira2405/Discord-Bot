@@ -3,8 +3,8 @@ const { EmbedBuilder } = require('discord.js');
 const { getSchedules, removeExpiredEvents, removeExpiredAbsences } = require('../excelManager');
 const { updateAbsenceMessage } = require('./absenceManager');
 const { updateScheduleMessage } = require('./scheduleManager');
-const { LOGO, DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, normalizeDate } = require('../constants');
-const { BASE_LABEL, BASE_OFFSET } = require('./timezoneManager');
+const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, normalizeDate } = require('../constants');
+const { BASE_LABEL } = require('./timezoneManager');
 
 function startReminders(client) {
     cron.schedule('0 9 * * *', async () => {
@@ -14,12 +14,12 @@ function startReminders(client) {
             const tomorrowISO = tomorrow.toISOString().split('T')[0];
             const guild = client.guilds.cache.first(); if (!guild) return;
             const channel = guild.channels.cache.find(c => c.name === 'reminders'); if (!channel) return;
-            const teamRole = guild.roles.cache.find(r => r.name === 'team');
+            const teamRole = guild.roles.cache.find(r => r.name === 'TEAM');
 
             for (const event of schedules) {
                 const dateStr = normalizeDate(event.date);
-                const [day, month, year] = dateStr.split('-');
-                if (`20${year}-${month}-${day}` !== tomorrowISO) continue;
+                const isoDate = (() => { try { const [d,m,y] = dateStr.split('/'); return `${y}-${m}-${d}`; } catch { return null; } })();
+                if (!isoDate || isoDate !== tomorrowISO) continue;
 
                 const color = TYPE_COLORS[event.type] || TYPE_COLORS.default;
                 const emoji = TYPE_EMOJIS[event.type] || '📅';
@@ -34,7 +34,7 @@ function startReminders(client) {
                 if (event.notes && event.notes !== 'N/A') desc += `${DIVIDER}\n📝  ${event.notes}\n`;
                 desc += DIVIDER;
 
-                const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `⚠️ REMINDER — TOMORROW  ·  ${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `Be ready!  ·  v3xys 💪  ·  ID: ${event.id}`, iconURL: LOGO }).setTimestamp();
+                const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `⚠️ REMINDER — TOMORROW  ·  ${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
                 const sent = await channel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
                 setTimeout(() => sent.delete().catch(() => {}), 30_000);
             }
@@ -45,10 +45,7 @@ function startReminders(client) {
         try {
             const guild = client.guilds.cache.first();
             const count = await removeExpiredEvents();
-            if (count > 0) {
-                console.log(`🗑️ Removed ${count} expired event(s)`);
-                if (guild) await updateScheduleMessage(guild);
-            }
+            if (count > 0) { console.log(`🗑️ Removed ${count} expired event(s)`); if (guild) await updateScheduleMessage(guild); }
         } catch (err) { console.error('Event cleanup error:', err); }
     }, { timezone: 'Europe/Lisbon' });
 
@@ -61,9 +58,6 @@ function startReminders(client) {
     }, { timezone: 'Europe/Lisbon' });
 
     console.log('✅ Reminder system started');
-    console.log('   ⏰ Daily 9AM — event reminders');
-    console.log('   🗑️  Midnight — expired events cleanup');
-    console.log('   💤 Midnight — expired absences cleanup');
 }
 
 module.exports = { startReminders };

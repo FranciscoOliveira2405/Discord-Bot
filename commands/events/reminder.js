@@ -4,7 +4,11 @@ const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, normali
 const { BASE_LABEL, buildTimezoneField } = require('../../utils/managers/timezoneManager');
 
 module.exports = {
-    data: new SlashCommandBuilder().setName('reminder').setDescription('Manually send a reminder for an event'),
+    data: new SlashCommandBuilder()
+        .setName('reminder')
+        .setDescription('Manually send a reminder for an event')
+        .setDefaultMemberPermissions(0),
+
     async execute(interaction) {
         if (!hasPerms(interaction)) return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
         const schedules = await getSchedules();
@@ -46,7 +50,7 @@ module.exports = {
             const remindersChannel = interaction.guild.channels.cache.find(ch => ch.name === 'reminders');
             if (!remindersChannel) return c.update({ content: '❌ #reminders channel not found.', components: [] });
 
-            const teamRole = interaction.guild.roles.cache.find(r => r.name === 'team');
+            const teamRole = interaction.guild.roles.cache.find(r => r.name === 'TEAM');
             const sent = await remindersChannel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
             setTimeout(() => sent.delete().catch(() => {}), 30_000);
             await c.update({ content: `✅ Reminder sent for **${event.type}** on **${dateStr}**.`, components: [] });
