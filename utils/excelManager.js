@@ -16,22 +16,16 @@ function ensureSheet(wb, name, headers) {
     return sheet;
 }
 
-// ─── SCHEDULES ───────────────────────────────────────────
 async function getSchedules() {
     const wb = await getWorkbook();
     const sheet = wb.getWorksheet('Schedules');
     if (!sheet) return [];
-    const schedules = [];
+    const rows = [];
     sheet.eachRow((row, i) => {
         if (i === 1) return;
-        schedules.push({
-            id: String(row.getCell(1).value), type: row.getCell(2).value,
-            date: row.getCell(3).value, time: row.getCell(4).value,
-            opponent: row.getCell(5).value, notes: row.getCell(6).value,
-            status: row.getCell(7).value,
-        });
+        rows.push({ id: String(row.getCell(1).value), type: row.getCell(2).value, date: row.getCell(3).value, time: row.getCell(4).value, opponent: row.getCell(5).value, notes: row.getCell(6).value, status: row.getCell(7).value });
     });
-    return schedules;
+    return rows;
 }
 
 async function addSchedule(type, date, time, opponent, notes) {
@@ -85,40 +79,34 @@ async function updateScheduleNotes(id, notes) {
     return updated;
 }
 
-// ─── ROSTER ──────────────────────────────────────────────
 async function getRoster() {
     const wb = await getWorkbook();
     const sheet = wb.getWorksheet('Roster');
     if (!sheet) return [];
-    const roster = [];
+    const rows = [];
     sheet.eachRow((row, i) => {
         if (i === 1) return;
-        roster.push({
-            discordTag: row.getCell(1).value, ign: row.getCell(2).value,
-            tRole: row.getCell(3).value, ctRole: row.getCell(4).value,
-            status: row.getCell(5).value,
-        });
+        rows.push({ discordTag: row.getCell(1).value, ign: row.getCell(2).value, roles: row.getCell(3).value, status: row.getCell(4).value });
     });
-    return roster;
+    return rows;
 }
 
-async function addPlayer(discordTag, ign, tRole, ctRole) {
+async function addPlayer(discordTag, ign, roles) {
     const wb = await getWorkbook();
-    const sheet = ensureSheet(wb, 'Roster', ['Discord Tag', 'IGN', 'T Role', 'CT Role', 'Status']);
-    sheet.addRow([discordTag, ign, tRole, ctRole, 'Active']);
+    const sheet = ensureSheet(wb, 'Roster', ['Discord Tag', 'IGN', 'Roles', 'Status']);
+    sheet.addRow([discordTag, ign, roles, 'Active']);
     await wb.xlsx.writeFile(FILE_PATH);
 }
 
-async function updatePlayer(discordTag, newTRole, newCTRole, newStatus) {
+async function updatePlayer(discordTag, newRoles, newStatus) {
     const wb = await getWorkbook();
     const sheet = wb.getWorksheet('Roster');
     if (!sheet) return false;
     let updated = false;
     sheet.eachRow((row) => {
         if (row.getCell(1).value === discordTag) {
-            if (newTRole) row.getCell(3).value = newTRole;
-            if (newCTRole) row.getCell(4).value = newCTRole;
-            if (newStatus) row.getCell(5).value = newStatus;
+            if (newRoles) row.getCell(3).value = newRoles;
+            if (newStatus) row.getCell(4).value = newStatus;
             updated = true;
         }
     });
@@ -137,21 +125,16 @@ async function removePlayer(discordTag) {
     return removed;
 }
 
-// ─── ABSENCES ────────────────────────────────────────────
 async function getAbsences() {
     const wb = await getWorkbook();
     const sheet = wb.getWorksheet('Absences');
     if (!sheet) return [];
-    const absences = [];
+    const rows = [];
     sheet.eachRow((row, i) => {
         if (i === 1) return;
-        absences.push({
-            discordTag: row.getCell(1).value, ign: row.getCell(2).value,
-            reason: row.getCell(3).value, date: row.getCell(4).value,
-            addedAt: row.getCell(5).value,
-        });
+        rows.push({ discordTag: row.getCell(1).value, ign: row.getCell(2).value, reason: row.getCell(3).value, date: row.getCell(4).value, addedAt: row.getCell(5).value });
     });
-    return absences;
+    return rows;
 }
 
 async function addAbsence(discordTag, ign, reason, date) {
@@ -182,24 +165,20 @@ async function removeExpiredAbsences() {
         if (i === 1) return;
         const date = row.getCell(4).value;
         if (!date) return;
-        try {
-            const d = new Date(toISODate(date)); d.setHours(0, 0, 0, 0);
-            if (d < today) toRemove.push(i);
-        } catch {}
+        try { const d = new Date(toISODate(date)); d.setHours(0, 0, 0, 0); if (d < today) toRemove.push(i); } catch {}
     });
     for (const i of toRemove.reverse()) sheet.spliceRows(i, 1);
     await wb.xlsx.writeFile(FILE_PATH);
     return toRemove.length;
 }
 
-// ─── TIMEZONES ───────────────────────────────────────────
 async function getTimezones() {
     const wb = await getWorkbook();
     const sheet = wb.getWorksheet('Timezones');
     if (!sheet) return [];
-    const timezones = [];
-    sheet.eachRow((row, i) => { if (i === 1) return; timezones.push({ label: row.getCell(1).value, tz: row.getCell(2).value }); });
-    return timezones;
+    const rows = [];
+    sheet.eachRow((row, i) => { if (i === 1) return; rows.push({ label: row.getCell(1).value, tz: row.getCell(2).value }); });
+    return rows;
 }
 
 async function addTimezone(label, tz) {

@@ -1,5 +1,7 @@
 const { getSchedules } = require('../excelManager');
+const { getTimezones } = require('../excelManager');
 const { LOGO, DIVIDER, TYPE_EMOJIS, normalizeDate } = require('../constants');
+const { buildTimezoneField } = require('./timezoneManager');
 const path = require('path');
 const fs = require('fs');
 
@@ -19,11 +21,18 @@ async function buildScheduleEmbed() {
         embed.setDescription(`${DIVIDER}\n📭  No events scheduled.\n${DIVIDER}`);
         return embed;
     }
-    const lines = schedules.map(e => {
+
+    const lines = await Promise.all(schedules.map(async e => {
         const emoji = TYPE_EMOJIS[e.type] || '📅';
         const opp = e.opponent && e.opponent !== 'N/A' ? `  ·  vs ${e.opponent}` : '';
-        return `${emoji}  **${e.type}**${opp}\n📅  ${normalizeDate(e.date)}　🕐  ${String(e.time)}`;
-    });
+        const dateStr = normalizeDate(e.date);
+        const timeStr = String(e.time);
+        const tzField = await buildTimezoneField(timeStr);
+        let line = `${emoji}  **${e.type}**${opp}\n📅  ${dateStr}　🕐  ${timeStr}`;
+        if (tzField) line += `\n🌍  ${tzField.replace(/\n/g, '　·　')}`;
+        return line;
+    }));
+
     let desc = `**${schedules.length}** event${schedules.length !== 1 ? 's' : ''} scheduled\n${DIVIDER}\n`;
     desc += lines.join(`\n${DIVIDER}\n`) + `\n${DIVIDER}`;
     embed.setDescription(desc);
