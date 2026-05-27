@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, EmbedBuilder } = require('discord.js');
 const { addSchedule, removeSchedule, getSchedules, updateScheduleNotes } = require('../../utils/excelManager');
-const { buildTimezoneField, BASE_LABEL, BASE_OFFSET } = require('../../utils/managers/timezoneManager');
+const { buildTimezoneField, BASE_LABEL } = require('../../utils/managers/timezoneManager');
 const { updateScheduleMessage } = require('../../utils/managers/scheduleManager');
-const { LOGO, DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, hasPerms, normalizeDate } = require('../../utils/constants');
+const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, hasPerms, normalizeDate } = require('../../utils/constants');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,6 +10,7 @@ module.exports = {
         .setDescription('Manage events')
         .addStringOption(o => o.setName('action').setDescription('What do you want to do?').setRequired(true)
             .addChoices(
+                { name: '📅 View schedule', value: 'view' },
                 { name: '➕ Add event', value: 'add' },
                 { name: '🗑️ Remove event', value: 'remove' },
                 { name: '📝 Edit notes', value: 'notes' },
@@ -27,9 +28,48 @@ module.exports = {
         .addStringOption(o => o.setName('notes').setDescription('Notes').setRequired(false)),
 
     async execute(interaction) {
-        if (!hasPerms(interaction)) return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
-
         const action = interaction.options.getString('action');
+
+        // View is open to everyone, rest requires perms
+        if (action !== 'view' && !hasPerms(interaction)) {
+            return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
+        }
+
+        // ── VIEW ──────────────────────────────────────────────
+        if (action === 'view') {
+            try {
+                const schedules = await getSchedules();
+                if (!schedules || schedules.length === 0) {
+                    const s = await interaction.reply({ content: '📭 No events scheduled.', ephemeral: false, fetchReply: true });
+                    setTimeout(() => s.delete().catch(() => {}), 30_000);
+                    return;
+                }
+
+                const embeds = await Promise.all(schedules.slice(0, 10).map(async e => {
+                    const color = TYPE_COLORS[e.type] || TYPE_COLORS.default;
+                    const emoji = TYPE_EMOJIS[e.type] || '📅';
+                    const label = TYPE_LABELS[e.type] || String(e.type).toUpperCase();
+                    const isMatch = e.type === 'Official Match' || e.type === 'Scrimmage';
+                    const dateStr = normalizeDate(e.date);
+                    const timeStr = String(e.time);
+                    const unix = toUnixTimestamp(dateStr, timeStr);
+                    const ts = unix ? `<t:${unix}:R>` : '';
+                    const tzField = await buildTimezoneField(timeStr);
+                    const title = isMatch ? `v3xys vs ${e.opponent && e.opponent !== 'N/A' ? e.opponent : 'TBD'}` : label;
+
+                    let desc = `${DIVIDER}\n📅  ${dateStr}　　🕐  ${timeStr} ${BASE_LABEL}　　${ts ? `⏳  ${ts}` : ''}\n`;
+                    if (isMatch && e.opponent && e.opponent !== 'N/A') desc += `🆚  ${e.opponent}\n`;
+                    if (tzField) desc += `${DIVIDER}\n🌍  ${tzField.replace(/\n/g, '　·　')}\n`;
+                    if (e.notes && e.notes !== 'N/A') desc += `${DIVIDER}\n📝  ${e.notes}\n`;
+                    desc += DIVIDER;
+
+                    return new EmbedBuilder().setColor(color).setAuthor({ name: `${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${e.id}` });
+                }));
+
+                const sent = await interaction.reply({ embeds, ephemeral: false, fetchReply: true });
+                setTimeout(() => sent.delete().catch(() => {}), 30_000);
+            } catch (err) { console.error(err); await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }); }
+        }
 
         // ── ADD ───────────────────────────────────────────────
         if (action === 'add') {
@@ -39,7 +79,7 @@ module.exports = {
             const opponent = interaction.options.getString('opponent') || null;
             const notes = interaction.options.getString('notes') || null;
 
-            if (!type) return interaction.reply({ content: '❌ Please provide a **type** for the event.', ephemeral: true });
+            if (!type) return interaction.reply({ content: '❌ Please provide a **type**.', ephemeral: true });
             if (!date) return interaction.reply({ content: '❌ Please provide a **date** (DD-MM-YY).', ephemeral: true });
             if (!time) return interaction.reply({ content: '❌ Please provide a **time** (HH:MM).', ephemeral: true });
             if (!/^\d{2}-\d{2}-\d{2}$/.test(date)) return interaction.reply({ content: '❌ Invalid date. Use **DD-MM-YY**', ephemeral: true });
@@ -70,7 +110,6 @@ module.exports = {
                     const sent = await scheduleChannel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
                     setTimeout(() => sent.delete().catch(() => {}), 30_000);
                 }
-
                 await updateScheduleMessage(interaction.guild);
                 await interaction.reply({ content: `✅ Event **${type}** on **${date}** at **${time}** added! (ID: \`${id}\`)`, ephemeral: true });
             } catch (err) { console.error(err); await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }); }
@@ -84,11 +123,7 @@ module.exports = {
             const options = schedules.slice(0, 25).map(e => {
                 const emoji = TYPE_EMOJIS[e.type] || '📅';
                 const dateStr = normalizeDate(e.date);
-                return new StringSelectMenuOptionBuilder()
-                    .setLabel(`${e.type} — ${dateStr} at ${e.time}`.slice(0, 100))
-                    .setDescription(`ID: ${e.id}`.slice(0, 100))
-                    .setValue(String(e.id))
-                    .setEmoji(emoji);
+                return new StringSelectMenuOptionBuilder().setLabel(`${e.type} — ${dateStr} at ${e.time}`.slice(0, 100)).setDescription(`ID: ${e.id}`.slice(0, 100)).setValue(String(e.id)).setEmoji(emoji);
             });
 
             const row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('schedule_remove').setPlaceholder('Select event to remove...').addOptions(options));
@@ -113,7 +148,6 @@ module.exports = {
                     const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `${emoji} ${label} — REMOVED` }).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
                     const sent = await ch.send({ embeds: [embed] }); setTimeout(() => sent.delete().catch(() => {}), 30_000);
                 }
-
                 await updateScheduleMessage(interaction.guild);
                 await c.update({ content: `✅ **${event?.type}** on **${dateStr}** removed.`, components: [] });
             } catch { await interaction.editReply({ content: '⏱️ Timed out.', components: [] }); }
@@ -127,11 +161,7 @@ module.exports = {
             const options = schedules.slice(0, 25).map(e => {
                 const emoji = TYPE_EMOJIS[e.type] || '📅';
                 const currentNotes = e.notes && e.notes !== 'N/A' ? `Notes: ${String(e.notes).slice(0, 50)}` : 'No notes yet';
-                return new StringSelectMenuOptionBuilder()
-                    .setLabel(`${e.type} — ${normalizeDate(e.date)} at ${e.time}`.slice(0, 100))
-                    .setDescription(currentNotes.slice(0, 100))
-                    .setValue(String(e.id))
-                    .setEmoji(emoji);
+                return new StringSelectMenuOptionBuilder().setLabel(`${e.type} — ${normalizeDate(e.date)} at ${e.time}`.slice(0, 100)).setDescription(currentNotes.slice(0, 100)).setValue(String(e.id)).setEmoji(emoji);
             });
 
             const row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('schedule_notes').setPlaceholder('Select event...').addOptions(options));
