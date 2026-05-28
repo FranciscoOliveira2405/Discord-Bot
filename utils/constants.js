@@ -29,7 +29,10 @@ const ALL_ROLES = [
 ];
 
 const STATUS_INDICATORS = {
-    'Active': '🟢 Active', 'Inactive': '🔴 Inactive', 'Substitute': '🟡 Substitute',
+    'Main': '🟢 Main',
+    'Subs': '🟡 Subs',
+    'Tryouts': '🔵 Tryouts',
+    'Stand-ins': '⚪ Stand-ins',
 };
 
 function hasPerms(interaction) {

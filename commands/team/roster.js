@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelect
 const { getRoster, addPlayer, updatePlayer, removePlayer } = require('../../utils/excelManager');
 const { DIVIDER, ROLE_EMOJIS, ALL_ROLES, STATUS_INDICATORS, hasPerms, hasTeamPerms } = require('../../utils/constants');
 
-const STATUS_ORDER = { 'Active': 0, 'Substitute': 1, 'Inactive': 2 };
+const STATUS_ORDER = { 'Main': 0, 'Subs': 1, 'Tryouts': 2, 'Stand-ins': 3 };
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -19,9 +19,10 @@ module.exports = {
         .addStringOption(o => o.setName('ign').setDescription('In-game name (required for add)').setRequired(false))
         .addStringOption(o => o.setName('status').setDescription('Player status (for update)').setRequired(false)
             .addChoices(
-                { name: 'Active', value: 'Active' },
-                { name: 'Inactive', value: 'Inactive' },
-                { name: 'Substitute', value: 'Substitute' },
+                { name: 'Main', value: 'Main' },
+                { name: 'Subs', value: 'Subs' },
+                { name: 'Tryouts', value: 'Tryouts' },
+                { name: 'Stand-ins', value: 'Stand-ins' },
             )),
 
     async execute(interaction) {
@@ -37,17 +38,18 @@ module.exports = {
             try {
                 const roster = await getRoster();
                 if (!roster || roster.length === 0) return interaction.reply({ content: '📭 Roster is empty.', ephemeral: true });
-                const sorted = [...roster].sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3));
-                const active = roster.filter(p => p.status === 'Active').length;
-                const inactive = roster.filter(p => p.status === 'Inactive').length;
-                const subs = roster.filter(p => p.status === 'Substitute').length;
+                const sorted = [...roster].sort((a, b) => (STATUS_ORDER[a.status] ?? 4) - (STATUS_ORDER[b.status] ?? 4));
+                const main = roster.filter(p => p.status === 'Main').length;
+                const subs = roster.filter(p => p.status === 'Subs').length;
+                const tryouts = roster.filter(p => p.status === 'Tryouts').length;
+                const standins = roster.filter(p => p.status === 'Stand-ins').length;
                 const rows = sorted.map(p => {
                     const rolesArr = p.roles ? String(p.roles).split(',').map(r => r.trim()) : [];
                     const roleStr = rolesArr.map(r => `${ROLE_EMOJIS[r] || '🎮'} ${r}`).join('  ·  ');
                     const status = STATUS_INDICATORS[p.status] || '⚪ Unknown';
                     return `**${p.ign}**\n${roleStr}\n${status}  ·  \`${p.discordTag}\``;
                 });
-                let desc = `🟢 ${active} Active　🔴 ${inactive} Inactive　🟡 ${subs} Substitute\n${DIVIDER}\n`;
+                let desc = `🟢 ${main} Main　🟡 ${subs} Subs　🔵 ${tryouts} Tryouts　⚪ ${standins} Stand-ins\n${DIVIDER}\n`;
                 desc += rows.join(`\n${DIVIDER}\n`) + `\n${DIVIDER}`;
                 const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'Roster' }).setDescription(desc).setFooter({ text: `${roster.length} player${roster.length !== 1 ? 's' : ''}` }).setTimestamp();
                 const sent = await interaction.reply({ embeds: [embed], ephemeral: false, fetchReply: true });
@@ -68,7 +70,7 @@ module.exports = {
                 const selectedRoles = c.values.join(', ');
                 await addPlayer(player.tag, ign, selectedRoles);
                 const roleStr = c.values.map(r => `${ROLE_EMOJIS[r] || '🎮'} ${r}`).join('  ·  ');
-                let desc = `${DIVIDER}\n👤  **${ign}**  ·  \`${player.tag}\`\n${roleStr}\n🟢 Active\n${DIVIDER}`;
+                let desc = `${DIVIDER}\n👤  **${ign}**  ·  \`${player.tag}\`\n${roleStr}\n🟢 Main\n${DIVIDER}`;
                 const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'PLAYER ADDED' }).setDescription(desc).setFooter({ text: `Added by ${interaction.user.tag}` }).setTimestamp();
                 await c.update({ embeds: [embed], components: [] });
                 setTimeout(() => interaction.deleteReply().catch(() => {}), 30_000);
