@@ -1,4 +1,4 @@
-const { getAbsences } = require('../excelManager');
+const { getAbsences } = require('../dbManager');
 const { DIVIDER } = require('../constants');
 const path = require('path');
 const fs = require('fs');
@@ -9,6 +9,14 @@ function loadMessageId() {
     try { if (fs.existsSync(ABSENCE_MESSAGE_FILE)) return JSON.parse(fs.readFileSync(ABSENCE_MESSAGE_FILE, 'utf8')).messageId || null; } catch {} return null;
 }
 function saveMessageId(id) { try { fs.writeFileSync(ABSENCE_MESSAGE_FILE, JSON.stringify({ messageId: id }), 'utf8'); } catch (e) { console.error('Failed to save absence msg ID:', e); } }
+
+async function findBotMessage(channel) {
+    try {
+        const messages = await channel.messages.fetch({ limit: 50 });
+        const botId = channel.guild.client.user.id;
+        return messages.find(m => m.author.id === botId && m.embeds.length > 0 && m.embeds[0].author?.name === 'Player Absences') || null;
+    } catch { return null; }
+}
 
 async function buildAbsenceEmbed() {
     const { EmbedBuilder } = require('discord.js');
@@ -43,15 +51,31 @@ async function updateAbsenceMessage(guild, pingTeam = false) {
     const channel = guild.channels.cache.find(c => c.name === 'absences');
     if (!channel) return;
     const embed = await buildAbsenceEmbed();
+
+    let existingMessage = null;
+
+    // Try stored message ID first
     const storedId = loadMessageId();
     if (storedId) {
-        try {
-            const existing = await channel.messages.fetch(storedId);
-            await existing.edit({ content: '', embeds: [embed] });
-            if (pingTeam) { const role = guild.roles.cache.find(r => r.name === 'TEAM'); if (role) { const p = await channel.send({ content: `${role}` }); setTimeout(() => p.delete().catch(() => {}), 30_000); } }
-            return;
-        } catch {}
+        try { existingMessage = await channel.messages.fetch(storedId); } catch {}
     }
+
+    // If that failed, scan the channel for bot's existing message
+    if (!existingMessage) {
+        existingMessage = await findBotMessage(channel);
+        if (existingMessage) saveMessageId(existingMessage.id);
+    }
+
+    if (existingMessage) {
+        await existingMessage.edit({ content: '', embeds: [embed] });
+        if (pingTeam) {
+            const role = guild.roles.cache.find(r => r.name === 'TEAM');
+            if (role) { const p = await channel.send({ content: `${role}` }); setTimeout(() => p.delete().catch(() => {}), 5_000); }
+        }
+        return;
+    }
+
+    // No existing message found, send a new one
     const role = pingTeam ? guild.roles.cache.find(r => r.name === 'TEAM') : null;
     const sent = await channel.send({ content: role ? `${role}` : '', embeds: [embed] });
     saveMessageId(sent.id);

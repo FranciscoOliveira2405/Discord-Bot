@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { EmbedBuilder } = require('discord.js');
-const { getSchedules, removeExpiredEvents, removeExpiredAbsences } = require('../excelManager');
+const { getSchedules, removeExpiredEvents, removeExpiredAbsences } = require('../dbManager');
 const { updateAbsenceMessage } = require('./absenceManager');
 const { updateScheduleMessage } = require('./scheduleManager');
 const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, normalizeDate } = require('../constants');
@@ -10,8 +10,8 @@ function startReminders(client) {
     cron.schedule('0 9 * * *', async () => {
         try {
             const schedules = await getSchedules();
-            const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-            const tomorrowISO = tomorrow.toISOString().split('T')[0];
+            const today = new Date();
+            const todayISO = today.toISOString().split('T')[0];
             const guild = client.guilds.cache.first(); if (!guild) return;
             const channel = guild.channels.cache.find(c => c.name === 'reminders'); if (!channel) return;
             const teamRole = guild.roles.cache.find(r => r.name === 'TEAM');
@@ -19,7 +19,7 @@ function startReminders(client) {
             for (const event of schedules) {
                 const dateStr = normalizeDate(event.date);
                 const isoDate = (() => { try { const [d,m,y] = dateStr.split('/'); return `${y}-${m}-${d}`; } catch { return null; } })();
-                if (!isoDate || isoDate !== tomorrowISO) continue;
+                if (!isoDate || isoDate !== todayISO) continue;
 
                 const color = TYPE_COLORS[event.type] || TYPE_COLORS.default;
                 const emoji = TYPE_EMOJIS[event.type] || '📅';
@@ -34,9 +34,9 @@ function startReminders(client) {
                 if (event.notes && event.notes !== 'N/A') desc += `${DIVIDER}\n📝  ${event.notes}\n`;
                 desc += DIVIDER;
 
-                const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `⚠️ REMINDER — TOMORROW  ·  ${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
-                const sent = await channel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
-                setTimeout(() => sent.delete().catch(() => {}), 30_000);
+                const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `⚠️ REMINDER — TODAY  ·  ${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
+                // No auto-delete — message stays permanently
+                await channel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
             }
         } catch (err) { console.error('Reminder error:', err); }
     }, { timezone: 'Europe/Lisbon' });

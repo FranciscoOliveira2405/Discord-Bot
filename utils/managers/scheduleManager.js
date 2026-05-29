@@ -1,4 +1,4 @@
-const { getSchedules } = require('../excelManager');
+const { getSchedules } = require('../dbManager');
 const { DIVIDER, TYPE_EMOJIS, TYPE_COLORS, TYPE_LABELS, normalizeDate, toUnixTimestamp } = require('../constants');
 const { buildTimezoneField } = require('./timezoneManager');
 const path = require('path');
@@ -10,6 +10,14 @@ function loadMessageId() {
     try { if (fs.existsSync(SCHEDULE_MESSAGE_FILE)) return JSON.parse(fs.readFileSync(SCHEDULE_MESSAGE_FILE, 'utf8')).messageId || null; } catch {} return null;
 }
 function saveMessageId(id) { try { fs.writeFileSync(SCHEDULE_MESSAGE_FILE, JSON.stringify({ messageId: id }), 'utf8'); } catch (e) { console.error('Failed to save schedule msg ID:', e); } }
+
+async function findBotMessage(channel) {
+    try {
+        const messages = await channel.messages.fetch({ limit: 50 });
+        const botId = channel.guild.client.user.id;
+        return messages.find(m => m.author.id === botId && m.embeds.length > 0 && m.embeds[0].author?.name === 'Upcoming Schedule') || null;
+    } catch { return null; }
+}
 
 async function buildScheduleEmbed() {
     const { EmbedBuilder } = require('discord.js');
@@ -47,10 +55,27 @@ async function updateScheduleMessage(guild) {
     const channel = guild.channels.cache.find(c => c.name === 'schedule');
     if (!channel) return;
     const embed = await buildScheduleEmbed();
+
+    let existingMessage = null;
+
+    // Try stored message ID first
     const storedId = loadMessageId();
     if (storedId) {
-        try { const existing = await channel.messages.fetch(storedId); await existing.edit({ content: '', embeds: [embed] }); return; } catch {}
+        try { existingMessage = await channel.messages.fetch(storedId); } catch {}
     }
+
+    // If that failed, scan the channel for bot's existing message
+    if (!existingMessage) {
+        existingMessage = await findBotMessage(channel);
+        if (existingMessage) saveMessageId(existingMessage.id);
+    }
+
+    if (existingMessage) {
+        await existingMessage.edit({ content: '', embeds: [embed] });
+        return;
+    }
+
+    // No existing message found, send a new one
     const sent = await channel.send({ embeds: [embed] });
     saveMessageId(sent.id);
 }

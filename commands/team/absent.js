@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { addAbsence, removeAbsence, getRoster } = require('../../utils/excelManager');
+const { addAbsence, removeAbsence, getRoster } = require('../../utils/dbManager');
 const { updateAbsenceMessage } = require('../../utils/managers/absenceManager');
 const { DIVIDER, hasTeamPerms } = require('../../utils/constants');
 

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType } = require('discord.js');
-const { getRoster, addPlayer, updatePlayer, removePlayer } = require('../../utils/excelManager');
+const { getRoster, addPlayer, updatePlayer, removePlayer } = require('../../utils/dbManager');
 const { DIVIDER, ROLE_EMOJIS, ALL_ROLES, STATUS_INDICATORS, hasPerms, hasTeamPerms } = require('../../utils/constants');
 
 const STATUS_ORDER = { 'Main': 0, 'Subs': 1, 'Tryouts': 2, 'Stand-ins': 3 };
@@ -17,7 +17,7 @@ module.exports = {
             ))
         .addUserOption(o => o.setName('player').setDescription('Discord user (required for add/update/remove)').setRequired(false))
         .addStringOption(o => o.setName('ign').setDescription('In-game name (required for add)').setRequired(false))
-        .addStringOption(o => o.setName('status').setDescription('Player status (for update)').setRequired(false)
+        .addStringOption(o => o.setName('status').setDescription('Player status').setRequired(false)
             .addChoices(
                 { name: 'Main', value: 'Main' },
                 { name: 'Subs', value: 'Subs' },
@@ -60,6 +60,7 @@ module.exports = {
         if (action === 'add') {
             const player = interaction.options.getUser('player');
             const ign = interaction.options.getString('ign');
+            const status = interaction.options.getString('status') || 'Main';
             if (!player) return interaction.reply({ content: '❌ Please provide a **player**.', ephemeral: true });
             if (!ign) return interaction.reply({ content: '❌ Please provide an **IGN**.', ephemeral: true });
             const options = ALL_ROLES.map(r => new StringSelectMenuOptionBuilder().setLabel(r.name).setValue(r.value).setEmoji(ROLE_EMOJIS[r.value] || '🎮'));
@@ -68,9 +69,9 @@ module.exports = {
             try {
                 const c = await reply.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 30_000 });
                 const selectedRoles = c.values.join(', ');
-                await addPlayer(player.tag, ign, selectedRoles);
+                await addPlayer(player.tag, ign, selectedRoles, status);
                 const roleStr = c.values.map(r => `${ROLE_EMOJIS[r] || '🎮'} ${r}`).join('  ·  ');
-                let desc = `${DIVIDER}\n👤  **${ign}**  ·  \`${player.tag}\`\n${roleStr}\n🟢 Main\n${DIVIDER}`;
+                let desc = `${DIVIDER}\n👤  **${ign}**  ·  \`${player.tag}\`\n${roleStr}\n${STATUS_INDICATORS[status] || status}\n${DIVIDER}`;
                 const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'PLAYER ADDED' }).setDescription(desc).setFooter({ text: `Added by ${interaction.user.tag}` }).setTimestamp();
                 await c.update({ embeds: [embed], components: [] });
                 setTimeout(() => interaction.deleteReply().catch(() => {}), 30_000);
