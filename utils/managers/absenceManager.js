@@ -18,6 +18,29 @@ async function findBotMessage(channel) {
     } catch { return null; }
 }
 
+// Parse DD/MM/YYYY to timestamp
+function dateToMs(str) {
+    const [d, m, y] = str.split('/').map(Number);
+    return new Date(y, m - 1, d).getTime();
+}
+
+// Group consecutive dates (regardless of reason) into ranges
+function groupIntoRanges(entries) {
+    const sorted = [...entries].sort((a, b) => dateToMs(a.dateStr) - dateToMs(b.dateStr));
+    const ranges = [];
+    let i = 0;
+    while (i < sorted.length) {
+        let j = i + 1;
+        while (j < sorted.length && dateToMs(sorted[j].dateStr) - dateToMs(sorted[j - 1].dateStr) === 86400000) j++;
+        const group = sorted.slice(i, j);
+        const days = group.length;
+        const reason = group[0].reason;
+        ranges.push({ start: group[0].dateStr, end: group[days - 1].dateStr, days, reason });
+        i = j;
+    }
+    return ranges;
+}
+
 async function buildAbsenceEmbed() {
     const { EmbedBuilder } = require('discord.js');
     const absences = await getAbsences();
@@ -32,13 +55,17 @@ async function buildAbsenceEmbed() {
     for (const a of absences) {
         const key = String(a.discordTag);
         if (!grouped[key]) grouped[key] = { ign: a.ign, discordTag: a.discordTag, entries: [] };
-        const dateStr = a.date ? String(a.date) : 'Unknown';
-        grouped[key].entries.push({ dateStr, reason: a.reason && a.reason !== 'N/A' ? a.reason : 'No reason given' });
+        grouped[key].entries.push({ dateStr: String(a.date), reason: a.reason && a.reason !== 'N/A' ? a.reason : 'No reason given' });
     }
 
     const total = absences.length;
     const blocks = Object.values(grouped).map(({ ign, discordTag, entries }) => {
-        return `💤  **${ign}**  ·  \`${discordTag}\`\n${entries.map(e => `📅  ${e.dateStr}  —  ${e.reason}`).join('\n')}`;
+        const ranges = groupIntoRanges(entries);
+        const lines = ranges.map(r => {
+            if (r.days === 1) return `📅  ${r.start}  —  ${r.reason}`;
+            return `📅  ${r.start}  →  ${r.end}  (${r.days} days)  —  ${r.reason}`;
+        });
+        return `💤  **${ign}**  ·  \`${discordTag}\`\n${lines.join('\n')}`;
     });
 
     let desc = `**${total}** absence${total !== 1 ? 's' : ''}\n${DIVIDER}\n`;
@@ -53,17 +80,14 @@ async function updateAbsenceMessage(guild, pingTeam = false) {
     const embed = await buildAbsenceEmbed();
 
     let existingMessage = null;
-
     const storedId = loadMessageId();
     if (storedId) {
         try { existingMessage = await channel.messages.fetch(storedId); } catch {}
     }
-
     if (!existingMessage) {
         existingMessage = await findBotMessage(channel);
         if (existingMessage) saveMessageId(existingMessage.id);
     }
-
     if (existingMessage) {
         await existingMessage.edit({ content: '', embeds: [embed] });
         if (pingTeam) {
