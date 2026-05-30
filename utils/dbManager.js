@@ -1,8 +1,13 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 const { toISODate } = require('./constants');
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'v3xys.db');
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const DB_PATH = path.join(DATA_DIR, 'v3xys.db');
+
+// Ensure data directory exists before opening DB
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 let _db = null;
 function getDb() {
@@ -119,12 +124,10 @@ async function getAbsences() {
     return getDb().prepare('SELECT * FROM absences').all();
 }
 
-// Get all absences for a specific player
 async function getAbsencesByTag(discordTag) {
     return getDb().prepare('SELECT * FROM absences WHERE discordTag = ?').all(discordTag);
 }
 
-// Check if a specific player+date absence already exists
 async function getAbsenceByTagAndDate(discordTag, date) {
     return getDb().prepare('SELECT * FROM absences WHERE discordTag = ? AND date = ?').get(discordTag, date) || null;
 }
@@ -133,13 +136,11 @@ async function addAbsence(discordTag, ign, reason, date) {
     getDb().prepare('INSERT INTO absences (discordTag, ign, reason, date, addedAt) VALUES (?, ?, ?, ?, ?)').run(discordTag, ign, reason, date, new Date().toISOString());
 }
 
-// Remove a single absence by its ID
 async function removeAbsenceById(id) {
     const result = getDb().prepare('DELETE FROM absences WHERE id = ?').run(id);
     return result.changes > 0;
 }
 
-// Remove all absences for a player (legacy fallback)
 async function removeAbsence(discordTag) {
     const result = getDb().prepare('DELETE FROM absences WHERE discordTag = ?').run(discordTag);
     return result.changes > 0;
