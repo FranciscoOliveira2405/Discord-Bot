@@ -1,5 +1,5 @@
 const { getSchedules } = require('../dbManager');
-const { DIVIDER, TYPE_EMOJIS, TYPE_COLORS, TYPE_LABELS, normalizeDate, toUnixTimestamp } = require('../constants');
+const { DIVIDER, TYPE_EMOJIS, normalizeDate } = require('../constants');
 const { buildTimezoneField } = require('./timezoneManager');
 const path = require('path');
 const fs = require('fs');
@@ -58,13 +58,11 @@ async function updateScheduleMessage(guild) {
 
     let existingMessage = null;
 
-    // Try stored message ID first
     const storedId = loadMessageId();
     if (storedId) {
         try { existingMessage = await channel.messages.fetch(storedId); } catch {}
     }
 
-    // If that failed, scan the channel for bot's existing message
     if (!existingMessage) {
         existingMessage = await findBotMessage(channel);
         if (existingMessage) saveMessageId(existingMessage.id);
@@ -75,7 +73,6 @@ async function updateScheduleMessage(guild) {
         return;
     }
 
-    // No existing message found, send a new one
     const sent = await channel.send({ embeds: [embed] });
     saveMessageId(sent.id);
 }

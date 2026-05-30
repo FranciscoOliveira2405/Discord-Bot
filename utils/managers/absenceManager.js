@@ -32,7 +32,7 @@ async function buildAbsenceEmbed() {
     for (const a of absences) {
         const key = String(a.discordTag);
         if (!grouped[key]) grouped[key] = { ign: a.ign, discordTag: a.discordTag, entries: [] };
-        const dateStr = a.date ? (typeof a.date === 'object' ? a.date.toISOString().split('T')[0] : String(a.date)) : 'Unknown';
+        const dateStr = a.date ? String(a.date) : 'Unknown';
         grouped[key].entries.push({ dateStr, reason: a.reason && a.reason !== 'N/A' ? a.reason : 'No reason given' });
     }
 
@@ -54,13 +54,11 @@ async function updateAbsenceMessage(guild, pingTeam = false) {
 
     let existingMessage = null;
 
-    // Try stored message ID first
     const storedId = loadMessageId();
     if (storedId) {
         try { existingMessage = await channel.messages.fetch(storedId); } catch {}
     }
 
-    // If that failed, scan the channel for bot's existing message
     if (!existingMessage) {
         existingMessage = await findBotMessage(channel);
         if (existingMessage) saveMessageId(existingMessage.id);
@@ -70,12 +68,11 @@ async function updateAbsenceMessage(guild, pingTeam = false) {
         await existingMessage.edit({ content: '', embeds: [embed] });
         if (pingTeam) {
             const role = guild.roles.cache.find(r => r.name === 'TEAM');
-            if (role) { const p = await channel.send({ content: `${role}` }); setTimeout(() => p.delete().catch(() => {}), 5_000); }
+            if (role) { const p = await channel.send({ content: `${role}` }); setTimeout(() => p.delete().catch(() => {}), 10_000); }
         }
         return;
     }
 
-    // No existing message found, send a new one
     const role = pingTeam ? guild.roles.cache.find(r => r.name === 'TEAM') : null;
     const sent = await channel.send({ content: role ? `${role}` : '', embeds: [embed] });
     saveMessageId(sent.id);

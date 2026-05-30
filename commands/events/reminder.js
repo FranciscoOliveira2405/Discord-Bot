@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, EmbedBuilder } = require('discord.js');
-const { getSchedules } = require('../../utils/excelManager');
+const { getSchedules } = require('../../utils/dbManager');
 const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, normalizeDate, hasPerms } = require('../../utils/constants');
 const { BASE_LABEL, buildTimezoneField } = require('../../utils/managers/timezoneManager');
 
@@ -17,10 +17,16 @@ module.exports = {
         const options = schedules.slice(0, 25).map(e => {
             const emoji = TYPE_EMOJIS[e.type] || '📅';
             const dateStr = normalizeDate(e.date);
-            return new StringSelectMenuOptionBuilder().setLabel(`${e.type} — ${dateStr} at ${e.time}`.slice(0, 100)).setDescription(`ID: ${e.id}`.slice(0, 100)).setValue(String(e.id)).setEmoji(emoji);
+            return new StringSelectMenuOptionBuilder()
+                .setLabel(`${e.type} — ${dateStr} at ${e.time}`.slice(0, 100))
+                .setDescription(`ID: ${e.id}`.slice(0, 100))
+                .setValue(String(e.id))
+                .setEmoji(emoji);
         });
 
-        const row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('reminder_select').setPlaceholder('Select event to remind...').addOptions(options));
+        const row = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder().setCustomId('reminder_select').setPlaceholder('Select event to remind...').addOptions(options)
+        );
         const reply = await interaction.reply({ content: '⚠️ **Select the event to send a reminder for:**', components: [row], ephemeral: true });
 
         try {
@@ -45,14 +51,20 @@ module.exports = {
             if (event.notes && event.notes !== 'N/A') desc += `${DIVIDER}\n📝  ${event.notes}\n`;
             desc += DIVIDER;
 
-            const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `⚠️ REMINDER  ·  ${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
+            const embed = new EmbedBuilder()
+                .setColor(color)
+                .setAuthor({ name: `⚠️ REMINDER  ·  ${emoji} ${label}` })
+                .setTitle(title)
+                .setDescription(desc)
+                .setFooter({ text: `ID: ${event.id}` })
+                .setTimestamp();
 
             const remindersChannel = interaction.guild.channels.cache.find(ch => ch.name === 'reminders');
             if (!remindersChannel) return c.update({ content: '❌ #reminders channel not found.', components: [] });
 
             const teamRole = interaction.guild.roles.cache.find(r => r.name === 'TEAM');
-            const sent = await remindersChannel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
-            setTimeout(() => sent.delete().catch(() => {}), 30_000);
+            // No auto-delete — message stays permanently so no ghost pings
+            await remindersChannel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
             await c.update({ content: `✅ Reminder sent for **${event.type}** on **${dateStr}**.`, components: [] });
         } catch { await interaction.editReply({ content: '⏱️ Timed out.', components: [] }); }
     }

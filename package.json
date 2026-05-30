@@ -1,10 +1,11 @@
 {
   "name": "v3xys-bot",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.2.0",
+  "description": "v3xys CS2 team management bot",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +17,6 @@
     "discord-api-types": "^0.38.48",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
-    "exceljs": "^4.4.0",
     "node-cron": "^4.2.1"
   }
 }

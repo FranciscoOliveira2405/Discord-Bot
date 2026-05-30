@@ -17,7 +17,7 @@ module.exports = {
             const teamRole = interaction.guild.roles.cache.find(r => r.name === 'TEAM');
             const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'Announcement' }).setDescription(`${DIVIDER}\n${message}\n${DIVIDER}`).setFooter({ text: `📣 ${interaction.user.tag}` }).setTimestamp();
             await ch.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
-            await interaction.reply({ content: `✅ Announcement sent!`, ephemeral: true });
+            await interaction.reply({ content: '✅ Announcement sent!', ephemeral: true });
         } catch (err) { console.error(err); await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }); }
     }
 };

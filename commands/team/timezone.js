@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { addTimezone, removeTimezone, getTimezones } = require('../../utils/excelManager');
+const { addTimezone, removeTimezone, getTimezones } = require('../../utils/dbManager');
 const { BASE_LABEL, BASE_OFFSET, parseOffset } = require('../../utils/managers/timezoneManager');
 const { DIVIDER, hasPerms } = require('../../utils/constants');
 const { updateScheduleMessage } = require('../../utils/managers/scheduleManager');

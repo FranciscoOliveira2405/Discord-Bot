@@ -7,6 +7,7 @@ const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, normali
 const { BASE_LABEL } = require('./timezoneManager');
 
 function startReminders(client) {
+    // 9AM daily — send reminder for today's events
     cron.schedule('0 9 * * *', async () => {
         try {
             const schedules = await getSchedules();
@@ -18,7 +19,7 @@ function startReminders(client) {
 
             for (const event of schedules) {
                 const dateStr = normalizeDate(event.date);
-                const isoDate = (() => { try { const [d,m,y] = dateStr.split('/'); return `${y}-${m}-${d}`; } catch { return null; } })();
+                const isoDate = (() => { try { const [d, m, y] = dateStr.split('/'); return `${y}-${m}-${d}`; } catch { return null; } })();
                 if (!isoDate || isoDate !== todayISO) continue;
 
                 const color = TYPE_COLORS[event.type] || TYPE_COLORS.default;
@@ -34,26 +35,41 @@ function startReminders(client) {
                 if (event.notes && event.notes !== 'N/A') desc += `${DIVIDER}\n📝  ${event.notes}\n`;
                 desc += DIVIDER;
 
-                const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `⚠️ REMINDER — TODAY  ·  ${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
+                const embed = new EmbedBuilder()
+                    .setColor(color)
+                    .setAuthor({ name: `⚠️ REMINDER — TODAY  ·  ${emoji} ${label}` })
+                    .setTitle(title)
+                    .setDescription(desc)
+                    .setFooter({ text: `ID: ${event.id}` })
+                    .setTimestamp();
+
                 // No auto-delete — message stays permanently
                 await channel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
             }
         } catch (err) { console.error('Reminder error:', err); }
     }, { timezone: 'Europe/Lisbon' });
 
+    // Midnight — remove expired events
     cron.schedule('0 0 * * *', async () => {
         try {
             const guild = client.guilds.cache.first();
             const count = await removeExpiredEvents();
-            if (count > 0) { console.log(`🗑️ Removed ${count} expired event(s)`); if (guild) await updateScheduleMessage(guild); }
+            if (count > 0) {
+                console.log(`🗑️ Removed ${count} expired event(s)`);
+                if (guild) await updateScheduleMessage(guild);
+            }
         } catch (err) { console.error('Event cleanup error:', err); }
     }, { timezone: 'Europe/Lisbon' });
 
+    // Midnight — remove expired absences
     cron.schedule('0 0 * * *', async () => {
         try {
             const guild = client.guilds.cache.first();
             const count = await removeExpiredAbsences();
-            if (count > 0) { console.log(`💤 Removed ${count} expired absence(s)`); if (guild) await updateAbsenceMessage(guild, false); }
+            if (count > 0) {
+                console.log(`💤 Removed ${count} expired absence(s)`);
+                if (guild) await updateAbsenceMessage(guild, false);
+            }
         } catch (err) { console.error('Absence cleanup error:', err); }
     }, { timezone: 'Europe/Lisbon' });
 

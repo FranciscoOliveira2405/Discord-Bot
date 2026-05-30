@@ -1,5 +1,5 @@
-const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-const { addSchedule, removeSchedule, getSchedules, updateScheduleNotes } = require('../../utils/excelManager');
+const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, EmbedBuilder } = require('discord.js');
+const { addSchedule, removeSchedule, getSchedules, updateScheduleNotes } = require('../../utils/dbManager');
 const { buildTimezoneField, BASE_LABEL } = require('../../utils/managers/timezoneManager');
 const { updateScheduleMessage } = require('../../utils/managers/scheduleManager');
 const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, hasPerms, hasTeamPerms, normalizeDate } = require('../../utils/constants');

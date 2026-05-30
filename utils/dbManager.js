@@ -42,8 +42,18 @@ function getDb() {
 
 // ─── Schedules ───────────────────────────────────────────────
 
+// Returns schedules sorted by date and time ascending
 async function getSchedules() {
-    return getDb().prepare('SELECT * FROM schedules').all();
+    const rows = getDb().prepare('SELECT * FROM schedules').all();
+    return rows.sort((a, b) => {
+        try {
+            const toMs = (date, time) => {
+                const [d, m, y] = date.split('/');
+                return new Date(`${y}-${m}-${d}T${time}:00`).getTime();
+            };
+            return toMs(a.date, a.time) - toMs(b.date, b.time);
+        } catch { return 0; }
+    });
 }
 
 async function addSchedule(type, date, time, opponent, notes) {
@@ -109,15 +119,30 @@ async function getAbsences() {
     return getDb().prepare('SELECT * FROM absences').all();
 }
 
+// Get all absences for a specific player
+async function getAbsencesByTag(discordTag) {
+    return getDb().prepare('SELECT * FROM absences WHERE discordTag = ?').all(discordTag);
+}
+
+// Check if a specific player+date absence already exists
+async function getAbsenceByTagAndDate(discordTag, date) {
+    return getDb().prepare('SELECT * FROM absences WHERE discordTag = ? AND date = ?').get(discordTag, date) || null;
+}
+
 async function addAbsence(discordTag, ign, reason, date) {
     getDb().prepare('INSERT INTO absences (discordTag, ign, reason, date, addedAt) VALUES (?, ?, ?, ?, ?)').run(discordTag, ign, reason, date, new Date().toISOString());
 }
 
+// Remove a single absence by its ID
+async function removeAbsenceById(id) {
+    const result = getDb().prepare('DELETE FROM absences WHERE id = ?').run(id);
+    return result.changes > 0;
+}
+
+// Remove all absences for a player (legacy fallback)
 async function removeAbsence(discordTag) {
-    const row = getDb().prepare('SELECT id FROM absences WHERE discordTag = ? LIMIT 1').get(discordTag);
-    if (!row) return false;
-    getDb().prepare('DELETE FROM absences WHERE id = ?').run(row.id);
-    return true;
+    const result = getDb().prepare('DELETE FROM absences WHERE discordTag = ?').run(discordTag);
+    return result.changes > 0;
 }
 
 async function removeExpiredAbsences() {
@@ -154,6 +179,6 @@ async function removeTimezone(tz) {
 module.exports = {
     getSchedules, addSchedule, removeSchedule, removeExpiredEvents, updateScheduleNotes,
     getRoster, addPlayer, updatePlayer, removePlayer,
-    getAbsences, addAbsence, removeAbsence, removeExpiredAbsences,
+    getAbsences, getAbsencesByTag, getAbsenceByTagAndDate, addAbsence, removeAbsence, removeAbsenceById, removeExpiredAbsences,
     getTimezones, addTimezone, removeTimezone,
 };

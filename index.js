@@ -3,6 +3,8 @@ const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { startReminders } = require('./utils/managers/reminderManager');
+const { updateScheduleMessage } = require('./utils/managers/scheduleManager');
+const { updateAbsenceMessage } = require('./utils/managers/absenceManager');
 
 const client = new Client({
     intents: [
@@ -13,7 +15,6 @@ const client = new Client({
     ]
 });
 
-// Recursively load all command files from subfolders
 function loadCommands(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
@@ -33,34 +34,36 @@ function loadCommands(dir) {
 client.commands = new Collection();
 loadCommands(path.join(__dirname, 'commands'));
 
-// Bot ready
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log(`\n🤖 v3xys Bot is online as ${client.user.tag}`);
     console.log(`📡 Connected to ${client.guilds.cache.size} server(s)`);
     startReminders(client);
+
+    // Refresh boards on startup so they're never stale after a redeploy
+    try {
+        const guild = client.guilds.cache.first();
+        if (guild) {
+            await updateScheduleMessage(guild);
+            await updateAbsenceMessage(guild, false);
+            console.log('✅ Boards refreshed on startup');
+        }
+    } catch (err) {
+        console.error('⚠️ Could not refresh boards on startup:', err);
+    }
 });
 
-// Handle slash commands
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
-
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
-
     try {
         await command.execute(interaction);
     } catch (err) {
         console.error(`❌ Error executing ${interaction.commandName}:`, err);
         if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({
-                content: '❌ There was an error executing this command.',
-                ephemeral: true
-            });
+            await interaction.followUp({ content: '❌ There was an error executing this command.', ephemeral: true });
         } else {
-            await interaction.reply({
-                content: '❌ There was an error executing this command.',
-                ephemeral: true
-            });
+            await interaction.reply({ content: '❌ There was an error executing this command.', ephemeral: true });
         }
     }
 });

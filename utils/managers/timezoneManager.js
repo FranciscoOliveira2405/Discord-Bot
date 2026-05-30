@@ -12,13 +12,10 @@ function parseOffset(gmtString) {
 function convertTime(time, fromOffset, toOffset) {
     const [hours, minutes] = time.split(':').map(Number);
     if (isNaN(hours) || isNaN(minutes)) return null;
-
     const totalMinutes = hours * 60 + minutes;
     const diffMinutes = (toOffset - fromOffset) * 60;
     let converted = totalMinutes + diffMinutes;
-
     converted = ((converted % (24 * 60)) + 24 * 60) % (24 * 60);
-
     const h = String(Math.floor(converted / 60)).padStart(2, '0');
     const m = String(converted % 60).padStart(2, '0');
     return `${h}:${m}`;
@@ -27,7 +24,6 @@ function convertTime(time, fromOffset, toOffset) {
 async function buildTimezoneField(time) {
     const timezones = await getTimezones();
     if (!timezones || timezones.length === 0) return null;
-
     const lines = [];
     for (const { label, tz } of timezones) {
         const offset = parseOffset(tz);
@@ -37,7 +33,6 @@ async function buildTimezoneField(time) {
         if (!converted) continue;
         lines.push(`**${label}:** ${converted}`);
     }
-
     if (lines.length === 0) return null;
     return lines.join('\n');
 }
