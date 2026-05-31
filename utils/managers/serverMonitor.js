@@ -59,7 +59,6 @@ async function updateServerChannel(guild, serverInfo) {
                     `**v3xys team server**`,
                     ``,
                     `👥  **Players:** ${serverInfo.players}/${serverInfo.maxPlayers}`,
-                    `🗺️  **Map:** ${serverInfo.map}`,
                     ``,
                     `\`\`\`${CONNECT_STRING}\`\`\``,
                 ].join('\n'))
