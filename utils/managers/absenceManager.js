@@ -18,13 +18,11 @@ async function findBotMessage(channel) {
     } catch { return null; }
 }
 
-// Parse DD/MM/YYYY to timestamp
 function dateToMs(str) {
     const [d, m, y] = str.split('/').map(Number);
     return new Date(y, m - 1, d).getTime();
 }
 
-// Group consecutive dates (regardless of reason) into ranges
 function groupIntoRanges(entries) {
     const sorted = [...entries].sort((a, b) => dateToMs(a.dateStr) - dateToMs(b.dateStr));
     const ranges = [];
@@ -33,9 +31,7 @@ function groupIntoRanges(entries) {
         let j = i + 1;
         while (j < sorted.length && dateToMs(sorted[j].dateStr) - dateToMs(sorted[j - 1].dateStr) === 86400000) j++;
         const group = sorted.slice(i, j);
-        const days = group.length;
-        const reason = group[0].reason;
-        ranges.push({ start: group[0].dateStr, end: group[days - 1].dateStr, days, reason });
+        ranges.push({ start: group[0].dateStr, end: group[group.length - 1].dateStr, days: group.length, reason: group[0].reason });
         i = j;
     }
     return ranges;
@@ -58,7 +54,8 @@ async function buildAbsenceEmbed() {
         grouped[key].entries.push({ dateStr: String(a.date), reason: a.reason && a.reason !== 'N/A' ? a.reason : 'No reason given' });
     }
 
-    const total = absences.length;
+    // Count unique players, not total days
+    const playerCount = Object.keys(grouped).length;
     const blocks = Object.values(grouped).map(({ ign, discordTag, entries }) => {
         const ranges = groupIntoRanges(entries);
         const lines = ranges.map(r => {
@@ -68,7 +65,7 @@ async function buildAbsenceEmbed() {
         return `💤  **${ign}**  ·  \`${discordTag}\`\n${lines.join('\n')}`;
     });
 
-    let desc = `**${total}** absence${total !== 1 ? 's' : ''}\n${DIVIDER}\n`;
+    let desc = `**${playerCount}** player${playerCount !== 1 ? 's' : ''} absent\n${DIVIDER}\n`;
     desc += blocks.join(`\n${DIVIDER}\n`) + `\n${DIVIDER}`;
     embed.setDescription(desc);
     return embed;

@@ -5,6 +5,7 @@ const path = require('path');
 const { startReminders } = require('./utils/managers/reminderManager');
 const { updateScheduleMessage } = require('./utils/managers/scheduleManager');
 const { updateAbsenceMessage } = require('./utils/managers/absenceManager');
+const { startServerMonitor } = require('./utils/managers/serverMonitor');
 
 const client = new Client({
     intents: [
@@ -38,8 +39,8 @@ client.once('ready', async () => {
     console.log(`\n🤖 v3xys Bot is online as ${client.user.tag}`);
     console.log(`📡 Connected to ${client.guilds.cache.size} server(s)`);
     startReminders(client);
+    startServerMonitor(client);
 
-    // Refresh boards on startup so they're never stale after a redeploy
     try {
         const guild = client.guilds.cache.first();
         if (guild) {
