@@ -1,10 +1,9 @@
-const Rcon = require('rcon-client').Rcon;
+const Gamedig = require('gamedig');
 const path = require('path');
 const fs = require('fs');
 
 const SERVER_IP = '169.150.245.105';
 const SERVER_PORT = 25958;
-const RCON_PASSWORD = 'V3xys123';
 const CONNECT_STRING = 'connect 169.150.245.105:25958; password Kaiimybitch';
 const CHECK_INTERVAL_MS = 60_000;
 
@@ -21,15 +20,8 @@ function saveState(state) {
 
 async function queryServer() {
     try {
-        const rcon = new Rcon({ host: SERVER_IP, port: SERVER_PORT, password: RCON_PASSWORD, timeout: 5000 });
-        await rcon.connect();
-        const response = await rcon.send('status');
-        await rcon.end();
-
-        const playersMatch = response.match(/players\s*:\s*(\d+)\s*humans/i);
-        const players = playersMatch ? parseInt(playersMatch[1]) : 0;
-
-        return { online: true, players, maxPlayers: 14 };
+        const state = await Gamedig.query({ type: 'csgo', host: SERVER_IP, port: SERVER_PORT });
+        return { online: true, players: state.players.length, maxPlayers: state.maxplayers || 14 };
     } catch {
         return { online: false };
     }
