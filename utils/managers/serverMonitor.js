@@ -2,10 +2,10 @@ const Rcon = require('rcon-client').Rcon;
 const path = require('path');
 const fs = require('fs');
 
-const SERVER_IP = '185.194.236.142';
-const SERVER_PORT = 30040;
-const RCON_PASSWORD = 'v3xys123';
-const CONNECT_STRING = 'connect 185.194.236.142:30040; password v3xys07';
+const SERVER_IP = '169.150.245.105';
+const SERVER_PORT = 25958;
+const RCON_PASSWORD = 'V3xys123';
+const CONNECT_STRING = 'connect 169.150.245.105:25958; password Kaiimybitch';
 const CHECK_INTERVAL_MS = 60_000;
 
 const STATE_FILE = path.join(__dirname, '..', '..', 'data', 'serverState.json');
@@ -26,13 +26,10 @@ async function queryServer() {
         const response = await rcon.send('status');
         await rcon.end();
 
-        // Parse player count from status output
         const playersMatch = response.match(/players\s*:\s*(\d+)\s*humans/i);
-        const mapMatch = response.match(/map\s*:\s*(\S+)/i);
         const players = playersMatch ? parseInt(playersMatch[1]) : 0;
-        const map = mapMatch ? mapMatch[1] : 'Unknown';
 
-        return { online: true, players, maxPlayers: 14, map };
+        return { online: true, players, maxPlayers: 14 };
     } catch {
         return { online: false };
     }
@@ -101,7 +98,6 @@ function startServerMonitor(client) {
         } catch (err) { console.error('Server monitor tick error:', err); }
     }, CHECK_INTERVAL_MS);
 
-    // Run immediately on startup
     setTimeout(async () => {
         try {
             const guild = client.guilds.cache.first();
