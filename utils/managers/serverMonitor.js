@@ -1,4 +1,4 @@
-const Gamedig = require('gamedig');
+const { GameDig } = require('gamedig');
 const path = require('path');
 const fs = require('fs');
 
@@ -20,9 +20,15 @@ function saveState(state) {
 
 async function queryServer() {
     try {
-        const state = await Gamedig.query({ type: 'csgo', host: SERVER_IP, port: SERVER_PORT });
+        const state = await GameDig.query({
+            type: 'counterstrike2',
+            host: SERVER_IP,
+            port: SERVER_PORT,
+            socketTimeout: 5000,
+        });
         return { online: true, players: state.players.length, maxPlayers: state.maxplayers || 14 };
-    } catch {
+    } catch (err) {
+        console.error('GameDig query failed:', err.message);
         return { online: false };
     }
 }
