@@ -163,13 +163,13 @@ The bot auto-deploys from the `main` branch. Railway runs `npm ci` then `npm sta
 
 Current version: **1.3.2**
 
-- **1.0** — Initial release (Excel storage)
-- **1.1** — Migrated to SQLite, fixed absence board, roster status system (Main/Subs/Tryouts/Stand-ins)
-- **1.2** — Full rebuild, all data on SQLite, chronological sorting, board refresh on startup, Portugal timezone fix
-- **1.21** — Date-range absences, range grouping on the board
-- **1.3** — CS2 server monitor, absence counts by player
-- **1.3.1** — Server monitor moved to new SCL host
-- **1.3.2** — Upgraded to GameDig v5 with counterstrike2 query type
+- **1.0** : Initial release (Excel storage)
+- **1.1** : Migrated to SQLite, fixed absence board, roster status system (Main/Subs/Tryouts/Stand-ins)
+- **1.2** : Full rebuild, all data on SQLite, chronological sorting, board refresh on startup, Portugal timezone fix
+- **1.2.1** : Date-range absences, range grouping on the board
+- **1.3** : CS2 server monitor, absence counts by player
+- **1.3.1** : Server monitor moved to new SCL host
+- **1.3.2** : Upgraded to GameDig v5 with counterstrike2 query type
 
 ---
 
