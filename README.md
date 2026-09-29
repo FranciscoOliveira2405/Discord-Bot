@@ -1,6 +1,6 @@
 # v3xys Bot
 
-A Bot to manage a Discord Server: scheduling, roster, absences, timezones, announcements, server monitoring, and moderation, all through slash commands.
+A Bot to manage a Discord Server : scheduling, roster, absences, timezones, announcements, server monitoring, and moderation, all through slash commands.
 
 Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Railway.
 
