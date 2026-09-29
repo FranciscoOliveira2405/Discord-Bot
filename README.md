@@ -1,6 +1,6 @@
 # v3xys Bot
 
-A Discord bot for managing the **v3xys** CS2 team — scheduling, roster, absences, timezones, announcements, server monitoring, and moderation, all through slash commands.
+A Discord bot for managing the **v3xys** CS2 team: scheduling, roster, absences, timezones, announcements, server monitoring, and moderation, all through slash commands.
 
 Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Railway.
 
@@ -9,7 +9,7 @@ Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Ra
 ## Features
 
 ### Schedule
-- `/schedule` — view, add, remove events and edit notes in one command
+- `/schedule` : view, add, remove events and edit notes in one command
 - Event types: **Practice**, **Official Match**, **Scrimmage**, **VOD Review** — each color-coded
 - Auto-updating `#schedule` board that always reflects the current events
 - Events sorted chronologically
@@ -26,8 +26,8 @@ Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Ra
 - Viewable by all TEAM members
 
 ### Absences
-- `/absent add` — mark a player absent for a single day or a **date range** (e.g. `01/06/2026-05/06/2026`)
-- `/absent remove` — remove a single date, a range, or all absences for a player
+- `/absent add` : mark a player absent for a single day or a **date range** (e.g. `01/06/2026-05/06/2026`)
+- `/absent remove` : remove a single date, a range, or all absences for a player
 - Auto-updating `#absences` board grouping consecutive dates into ranges
 - Counts unique players, not individual days
 - Duplicate-date protection
@@ -47,9 +47,9 @@ Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Ra
 - `/announce` — formatted announcement to `#announcements`, pings @TEAM
 
 ### Server Moderation
-- `/clear` — bulk delete up to 100 messages
-- `/slowmode` — set channel slowmode
-- `/lock` / `/unlock` — lock or unlock a channel
+- `/clear` : bulk delete up to 100 messages
+- `/slowmode` : set channel slowmode
+- `/lock` / `/unlock` : lock or unlock a channel
 
 ---
 
