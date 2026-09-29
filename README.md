@@ -10,16 +10,16 @@ Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Ra
 
 ### Schedule
 - `/schedule` : view, add, remove events and edit notes in one command
-- Event types: **Practice**, **Official Match**, **Scrimmage**, **VOD Review** — each color-coded
+- Event types: **Practice**, **Official Match**, **Scrimmage**, **VOD Review** : each color-coded
 - Auto-updating `#schedule` board that always reflects the current events
 - Events sorted chronologically
 - Automatic midnight cleanup of expired events
 - 9 AM daily reminders for the day's events
-- `/reminder` — manually push a reminder at any time
+- `/reminder` : manually push a reminder at any time
 - Timezone conversions shown on every event
 
 ### Roster
-- `/roster` — view, add, update and remove players
+- `/roster` : view, add, update and remove players
 - Multi-role support per player (e.g. Entry + IGL)
 - Status categories: Main, Subs, Tryouts, Stand-ins
 - Sorted by status
@@ -34,7 +34,7 @@ Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Ra
 - Auto-expires at midnight
 
 ### Timezones
-- `/timezone add/remove/view` — manage team timezones
+- `/timezone add/remove/view` : manage team timezones
 - Base timezone: **Portugal (GMT+1)**
 - Converts every event time to all configured timezones
 
@@ -44,7 +44,7 @@ Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Ra
 - Live embed with player count and connect info
 
 ### Announcements
-- `/announce` — formatted announcement to `#announcements`, pings @TEAM
+- `/announce` : formatted announcement to `#announcements`, pings @TEAM
 
 ### Server Moderation
 - `/clear` : bulk delete up to 100 messages
@@ -67,9 +67,9 @@ Restricted commands are hidden from TEAM via Discord integrations.
 ## Tech Stack
 
 - **Node.js** + **Discord.js v14**
-- **better-sqlite3** — persistent local database
-- **node-cron** — scheduled tasks (reminders, cleanup)
-- **gamedig** — CS2 server status queries
+- **better-sqlite3** : persistent local database
+- **node-cron** : scheduled tasks (reminders, cleanup)
+- **gamedig** : CS2 server status queries
 - Hosted on **Railway** (24/7, auto-deploys from GitHub)
 
 ---
