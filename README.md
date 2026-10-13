@@ -1,8 +1,8 @@
-# v3xys Bot
+# Discord Bot
 
-A Bot to manage a Discord Server : scheduling, roster, absences, timezones, announcements, server monitoring, and moderation, all through slash commands.
+A bot to manage a Discord server for a team: scheduling, roster, absences, timezones, announcements and moderation, all through slash commands.
 
-Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Railway.
+Built with Node.js and Discord.js v14, backed by SQLite.
 
 ---
 
@@ -38,11 +38,6 @@ Built with Node.js and Discord.js v14, backed by SQLite, and deployed 24/7 on Ra
 - Base timezone: **Portugal (GMT+1)**
 - Converts every event time to all configured timezones
 
-### CS2 Server Monitor
-- Automatically checks the CS2 server every minute
-- Renames the `#cs2-server` channel based on status (online / offline)
-- Live embed with player count and connect info
-
 ### Announcements
 - `/announce` : formatted announcement to `#announcements`, pings @TEAM
 
@@ -66,28 +61,26 @@ Restricted commands are hidden from TEAM via Discord integrations.
 
 ## Tech Stack
 
-- **Node.js** + **Discord.js v14**
+- **Node.js 20+** + **Discord.js v14**
 - **better-sqlite3** : persistent local database
 - **node-cron** : scheduled tasks (reminders, cleanup)
-- **gamedig** : CS2 server status queries
-- Hosted on **Railway** (24/7, auto-deploys from GitHub)
 
 ---
 
 ## Project Structure
 
 ```text
-v3xys-bot/
+Discord-Bot/
 ├─ commands/
 │  ├─ events/      → schedule, reminder
 │  ├─ general/     → announce
 │  ├─ server/      → clear, lock, slowmode, unlock
 │  └─ team/        → roster, absent, timezone
 ├─ utils/
-│  ├─ managers/    → schedule, absence, reminder, timezone, server monitor
+│  ├─ managers/    → schedule, absence, reminder, timezone
 │  ├─ constants.js → shared config, helpers, permissions
 │  └─ dbManager.js → SQLite data layer
-├─ data/           → SQLite DB + message state (auto-created)
+├─ data/           → SQLite database (auto-created)
 ├─ index.js        → entry point
 ├─ deploy-commands.js
 └─ package.json
@@ -98,14 +91,14 @@ v3xys-bot/
 ## Setup
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20 or newer
 - A Discord bot application ([Discord Developer Portal](https://discord.com/developers/applications))
 
 ### Installation
 
 ```bash
-git clone https://github.com/FranciscoSilva2405/v3xys-bot.git
-cd v3xys-bot
+git clone https://github.com/FranciscoOliveira2405/Discord-Bot.git
+cd Discord-Bot
 npm install
 ```
 
@@ -118,6 +111,8 @@ TOKEN=your_bot_token
 CLIENT_ID=your_application_id
 GUILD_ID=your_server_id
 ```
+
+**Never commit your `.env` file or share your bot token.** The file is already listed in `.gitignore`. If a token is ever exposed, reset it immediately in the Discord Developer Portal.
 
 ### Register slash commands
 
@@ -143,7 +138,6 @@ The bot looks for these channels by name:
 | `#absences` | Auto-updating absence board |
 | `#reminders` | Daily and manual reminders |
 | `#announcements` | Announcements |
-| `#cs2-server` | Server status (auto-renamed) |
 
 ## Required Roles
 
@@ -151,11 +145,11 @@ The bot looks for these channels by name:
 
 ---
 
-## Deployment (Railway)
+## Hosting
 
-The bot auto-deploys from the `main` branch. Railway runs `npm ci` then `npm start`.
+The bot needs to run continuously (24/7) on any machine or host with Node.js 20+. Install dependencies with `npm ci`, set the environment variables from the Configuration section, then run `npm start`.
 
-**Important:** `node_modules/` and `.env` are gitignored. When adding a dependency, always run `npm install` locally and commit the updated `package-lock.json` so Railway's `npm ci` stays in sync.
+When adding a dependency, run `npm install` locally and commit the updated `package-lock.json`.
 
 ---
 
@@ -167,9 +161,8 @@ Current version: **1.3.2**
 - **1.1** : Migrated to SQLite, fixed absence board, roster status system (Main/Subs/Tryouts/Stand-ins)
 - **1.2** : Full rebuild, all data on SQLite, chronological sorting, board refresh on startup, Portugal timezone fix
 - **1.2.1** : Date-range absences, range grouping on the board
-- **1.3** : CS2 server monitor, absence counts by player
-- **1.3.1** : Server monitor moved to new SCL host
-- **1.3.2** : Upgraded to GameDig v5 with counterstrike2 query type
+- **1.3** : Absence counts by player
+- **1.3.2** : Dependency updates
 
 ---
 
