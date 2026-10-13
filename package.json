@@ -1,7 +1,7 @@
 {
-  "name": "v3xys-bot",
+  "name": "discord-bot",
   "version": "1.3.2",
-  "description": "v3xys CS2 team management bot",
+  "description": "Discord team management bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
