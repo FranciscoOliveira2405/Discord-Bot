@@ -28,7 +28,7 @@ function startReminders(client) {
                 const isMatch = event.type === 'Official Match' || event.type === 'Scrimmage';
                 const unix = toUnixTimestamp(dateStr, String(event.time));
                 const ts = unix ? `<t:${unix}:R>` : '';
-                const title = isMatch ? `v3xys vs ${event.opponent && event.opponent !== 'N/A' ? event.opponent : 'TBD'}` : label;
+                const title = isMatch ? `You vs ${event.opponent && event.opponent !== 'N/A' ? event.opponent : 'TBD'}` : label;
 
                 let desc = `${DIVIDER}\n📅  ${dateStr}　　🕐  ${String(event.time)} ${BASE_LABEL}　　${ts ? `⏳  ${ts}` : ''}\n`;
                 if (isMatch && event.opponent && event.opponent !== 'N/A') desc += `🆚  ${event.opponent}\n`;
