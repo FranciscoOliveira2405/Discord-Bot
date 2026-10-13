@@ -54,7 +54,7 @@ module.exports = {
                     const unix = toUnixTimestamp(dateStr, timeStr);
                     const ts = unix ? `<t:${unix}:R>` : '';
                     const tzField = await buildTimezoneField(timeStr);
-                    const title = isMatch ? `v3xys vs ${e.opponent && e.opponent !== 'N/A' ? e.opponent : 'TBD'}` : label;
+                    const title = isMatch ? `You vs ${e.opponent && e.opponent !== 'N/A' ? e.opponent : 'TBD'}` : label;
                     let desc = `${DIVIDER}\n📅  ${dateStr}　　🕐  ${timeStr} ${BASE_LABEL}　　${ts ? `⏳  ${ts}` : ''}\n`;
                     if (isMatch && e.opponent && e.opponent !== 'N/A') desc += `🆚  ${e.opponent}\n`;
                     if (tzField) desc += `${DIVIDER}\n🌍  ${tzField.replace(/\n/g, '　·　')}\n`;
@@ -89,7 +89,7 @@ module.exports = {
                 const ts = unix ? `<t:${unix}:R>` : '';
                 const tzField = await buildTimezoneField(time);
                 const isMatch = type === 'Official Match' || type === 'Scrimmage';
-                const title = isMatch ? `v3xys vs ${opponent || 'TBD'}` : label;
+                const title = isMatch ? `You vs ${opponent || 'TBD'}` : label;
                 let desc = `${DIVIDER}\n📅  ${date}　　🕐  ${time} ${BASE_LABEL}　　${ts ? `⏳  ${ts}` : ''}\n`;
                 if (isMatch && opponent) desc += `🆚  ${opponent}\n`;
                 if (tzField) desc += `${DIVIDER}\n🌍  ${tzField.replace(/\n/g, '　·　')}\n`;
