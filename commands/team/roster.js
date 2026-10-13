@@ -7,7 +7,7 @@ const STATUS_ORDER = { 'Main': 0, 'Subs': 1, 'Tryouts': 2, 'Stand-ins': 3 };
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('roster')
-        .setDescription('Manage the v3xys roster')
+        .setDescription('Manage the roster')
         .addStringOption(o => o.setName('action').setDescription('What do you want to do?').setRequired(true)
             .addChoices(
                 { name: '👥 View roster', value: 'view' },
