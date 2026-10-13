@@ -5,7 +5,6 @@ const path = require('path');
 const { startReminders } = require('./utils/managers/reminderManager');
 const { updateScheduleMessage } = require('./utils/managers/scheduleManager');
 const { updateAbsenceMessage } = require('./utils/managers/absenceManager');
-const { startServerMonitor } = require('./utils/managers/serverMonitor');
 
 const client = new Client({
     intents: [
@@ -36,10 +35,9 @@ client.commands = new Collection();
 loadCommands(path.join(__dirname, 'commands'));
 
 client.once('ready', async () => {
-    console.log(`\n🤖 v3xys Bot is online as ${client.user.tag}`);
+    console.log(`\n🤖 Bot is online as ${client.user.tag}`);
     console.log(`📡 Connected to ${client.guilds.cache.size} server(s)`);
     startReminders(client);
-    startServerMonitor(client);
 
     try {
         const guild = client.guilds.cache.first();
