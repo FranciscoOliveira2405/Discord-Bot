@@ -161,8 +161,8 @@ Current version: **1.3.2**
 - **1.1** : Migrated to SQLite, fixed absence board, roster status system (Main/Subs/Tryouts/Stand-ins)
 - **1.2** : Full rebuild, all data on SQLite, chronological sorting, board refresh on startup, Portugal timezone fix
 - **1.2.1** : Date-range absences, range grouping on the board
-- **1.3** : Dependency updates
-- **1.3.2** : Absence counts by player
+- **1.3** : Absence counts by player
+- **1.3.2** : Dependency updates
 
 ---
 
