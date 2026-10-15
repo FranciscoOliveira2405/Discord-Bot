@@ -1,0 +1,42 @@
+name: Bug report
+description: Something is not working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Never paste your bot token or `.env` contents here.**
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `/schedule` with ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Bot version
+      placeholder: '2.0.0'
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: '20.x'
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output / error
+      description: Paste any error from the console (remove tokens and private IDs first).
+      render: shell

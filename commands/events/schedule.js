@@ -1,180 +1,226 @@
-const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, EmbedBuilder } = require('discord.js');
+const {
+    SlashCommandBuilder,
+    ComponentType,
+    ActionRowBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+} = require('discord.js');
 const { addSchedule, removeSchedule, getSchedules, updateScheduleNotes } = require('../../utils/dbManager');
-const { buildTimezoneField, BASE_LABEL } = require('../../utils/managers/timezoneManager');
 const { updateScheduleMessage } = require('../../utils/managers/scheduleManager');
-const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, hasPerms, hasTeamPerms, normalizeDate } = require('../../utils/constants');
+const {
+    CHANNELS,
+    NO_PERMS_MANAGER,
+    NO_PERMS_TEAM,
+    hasPerms,
+    hasTeamPerms,
+    findChannel,
+    teamMention,
+    normalizeDate,
+} = require('../../utils/constants');
+const { isValidDate, isValidTime, lisbonToUnix, nowUnix } = require('../../utils/time');
+const { buildEventEmbed, eventSelect } = require('../../utils/embeds');
+const { EPHEMERAL, ephemeral, safeReply, deleteLater, replyThenDelete, isTimeout } = require('../../utils/reply');
+
+// Posts a short-lived notice in #schedule
+async function postNotice(guild, payload) {
+    const channel = findChannel(guild, CHANNELS.schedule);
+    if (channel) deleteLater(await channel.send(payload));
+}
+
+// Shows a select menu with every event and waits for the choice. Returns null if nobody answers.
+async function pickEvent(interaction, { prompt, customId, placeholder, schedules, describe }) {
+    const message = await interaction.reply({
+        content: prompt,
+        components: [eventSelect(customId, placeholder, schedules, describe)],
+        flags: EPHEMERAL,
+    });
+    try {
+        const selection = await message.awaitMessageComponent({
+            componentType: ComponentType.StringSelect,
+            time: 30_000,
+        });
+        return { selection, event: schedules.find((e) => String(e.id) === selection.values[0]) };
+    } catch (err) {
+        if (!isTimeout(err)) throw err;
+        await interaction.editReply({ content: '⏱️ Timed out.', components: [] });
+        return null;
+    }
+}
+
+async function viewEvents(interaction) {
+    const schedules = getSchedules();
+    if (schedules.length === 0) return replyThenDelete(interaction, { content: '📭 No events scheduled.' });
+    // Discord allows at most 10 embeds per message
+    await replyThenDelete(interaction, { embeds: schedules.slice(0, 10).map((event) => buildEventEmbed(event)) });
+}
+
+async function addEvent(interaction) {
+    const type = interaction.options.getString('type');
+    const date = interaction.options.getString('date')?.trim();
+    const time = interaction.options.getString('time')?.trim();
+    const opponent = interaction.options.getString('opponent')?.trim() || null;
+    const notes = interaction.options.getString('notes')?.trim() || null;
+
+    if (!type) return safeReply(interaction, ephemeral('❌ Please provide a **type**.'));
+    if (!date) return safeReply(interaction, ephemeral('❌ Please provide a **date** (DD/MM/YYYY).'));
+    if (!time) return safeReply(interaction, ephemeral('❌ Please provide a **time** (HH:MM).'));
+    if (!isValidDate(date)) {
+        return safeReply(interaction, ephemeral('❌ Invalid date. Use **DD/MM/YYYY** (e.g. `27/05/2026`).'));
+    }
+    if (!isValidTime(time)) {
+        return safeReply(interaction, ephemeral('❌ Invalid time. Use **HH:MM** on a 24 hour clock (e.g. `21:30`).'));
+    }
+    if (lisbonToUnix(date, time) <= nowUnix()) {
+        return safeReply(interaction, ephemeral('❌ That date and time is already in the past.'));
+    }
+
+    const id = addSchedule(type, date, time, opponent, notes);
+    const event = { id, type, date, time, opponent: opponent || 'N/A', notes: notes || 'N/A' };
+    await postNotice(interaction.guild, {
+        ...teamMention(interaction.guild),
+        embeds: [buildEventEmbed(event, { timestamp: true })],
+    });
+    await updateScheduleMessage(interaction.guild);
+    await safeReply(
+        interaction,
+        ephemeral(`✅ Event **${type}** on **${date}** at **${time}** added! (ID: \`${id}\`)`),
+    );
+}
+
+async function removeEvent(interaction) {
+    const schedules = getSchedules();
+    if (schedules.length === 0) return safeReply(interaction, ephemeral('📭 No events to remove.'));
+
+    const picked = await pickEvent(interaction, {
+        prompt: '🗑️ **Select the event to remove:**',
+        customId: 'schedule_remove',
+        placeholder: 'Select event to remove...',
+        schedules,
+    });
+    if (!picked) return;
+    const { selection, event } = picked;
+
+    if (!event || !removeSchedule(event.id))
+        return selection.update({ content: '❌ Event not found.', components: [] });
+
+    await postNotice(interaction.guild, {
+        embeds: [buildEventEmbed(event, { authorSuffix: ' — REMOVED', showTimezones: false, timestamp: true })],
+    });
+    await updateScheduleMessage(interaction.guild);
+    await selection.update({
+        content: `✅ **${event.type}** on **${normalizeDate(event.date)}** removed.`,
+        components: [],
+    });
+}
+
+async function editNotes(interaction) {
+    const schedules = getSchedules();
+    if (schedules.length === 0) return safeReply(interaction, ephemeral('📭 No events to add notes to.'));
+
+    const picked = await pickEvent(interaction, {
+        prompt: '📝 **Select event to update notes:**',
+        customId: 'schedule_notes',
+        placeholder: 'Select event...',
+        schedules,
+        describe: (e) => (e.notes && e.notes !== 'N/A' ? `Notes: ${String(e.notes).slice(0, 50)}` : 'No notes yet'),
+    });
+    if (!picked) return;
+    const { selection, event } = picked;
+    if (!event) return selection.update({ content: '❌ Event not found.', components: [] });
+
+    // A pop-up form: no need to read channel messages
+    const hasNotes = event.notes && event.notes !== 'N/A';
+    const modal = new ModalBuilder()
+        .setCustomId(`schedule_notes_${event.id}`)
+        .setTitle('Edit event notes')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('notes')
+                    .setLabel(`${event.type} — ${normalizeDate(event.date)}`.slice(0, 45))
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setMaxLength(500)
+                    .setRequired(false)
+                    .setValue(hasNotes ? String(event.notes).slice(0, 500) : ''),
+            ),
+        );
+    await selection.showModal(modal);
+
+    let submitted;
+    try {
+        submitted = await selection.awaitModalSubmit({
+            time: 120_000,
+            filter: (i) => i.customId === modal.data.custom_id && i.user.id === interaction.user.id,
+        });
+    } catch (err) {
+        if (!isTimeout(err)) throw err;
+        return interaction.editReply({ content: '⏱️ Timed out.', components: [] });
+    }
+
+    const notes = submitted.fields.getTextInputValue('notes').trim() || 'N/A';
+    if (!updateScheduleNotes(event.id, notes)) {
+        return submitted.reply(ephemeral('❌ Event not found.'));
+    }
+    await postNotice(interaction.guild, {
+        embeds: [
+            buildEventEmbed(
+                { ...event, notes },
+                { authorSuffix: ' — NOTES UPDATED', showTimezones: false, timestamp: true },
+            ),
+        ],
+    });
+    await updateScheduleMessage(interaction.guild);
+    await submitted.reply(ephemeral(`✅ Notes updated for **${event.type}** on **${normalizeDate(event.date)}**.`));
+    await interaction.deleteReply().catch(() => {});
+}
+
+const ACTIONS = { view: viewEvents, add: addEvent, remove: removeEvent, notes: editNotes };
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('schedule')
         .setDescription('Manage events')
-        .addStringOption(o => o.setName('action').setDescription('What do you want to do?').setRequired(true)
-            .addChoices(
-                { name: '📅 View schedule', value: 'view' },
-                { name: '➕ Add event', value: 'add' },
-                { name: '🗑️ Remove event', value: 'remove' },
-                { name: '📝 Edit notes', value: 'notes' },
-            ))
-        .addStringOption(o => o.setName('type').setDescription('Type of event (required for add)').setRequired(false)
-            .addChoices(
-                { name: 'Practice', value: 'Practice' },
-                { name: 'Official Match', value: 'Official Match' },
-                { name: 'Scrimmage', value: 'Scrimmage' },
-                { name: 'VOD Review', value: 'VOD Review' },
-            ))
-        .addStringOption(o => o.setName('date').setDescription('Date DD/MM/YYYY (required for add)').setRequired(false))
-        .addStringOption(o => o.setName('time').setDescription('Time HH:MM Portugal time (required for add)').setRequired(false))
-        .addStringOption(o => o.setName('opponent').setDescription('Opponent name').setRequired(false))
-        .addStringOption(o => o.setName('notes').setDescription('Notes').setRequired(false)),
+        .addStringOption((o) =>
+            o
+                .setName('action')
+                .setDescription('What do you want to do?')
+                .setRequired(true)
+                .addChoices(
+                    { name: '📅 View schedule', value: 'view' },
+                    { name: '➕ Add event', value: 'add' },
+                    { name: '🗑️ Remove event', value: 'remove' },
+                    { name: '📝 Edit notes', value: 'notes' },
+                ),
+        )
+        .addStringOption((o) =>
+            o
+                .setName('type')
+                .setDescription('Type of event (required for add)')
+                .setRequired(false)
+                .addChoices(
+                    { name: 'Practice', value: 'Practice' },
+                    { name: 'Official Match', value: 'Official Match' },
+                    { name: 'Scrimmage', value: 'Scrimmage' },
+                    { name: 'VOD Review', value: 'VOD Review' },
+                ),
+        )
+        .addStringOption((o) =>
+            o.setName('date').setDescription('Date DD/MM/YYYY (required for add)').setRequired(false),
+        )
+        .addStringOption((o) =>
+            o.setName('time').setDescription('Time HH:MM Portugal time (required for add)').setRequired(false),
+        )
+        .addStringOption((o) =>
+            o.setName('opponent').setDescription('Opponent name').setRequired(false).setMaxLength(100),
+        )
+        .addStringOption((o) => o.setName('notes').setDescription('Notes').setRequired(false).setMaxLength(500)),
 
     async execute(interaction) {
         const action = interaction.options.getString('action');
-
-        if (action === 'view') {
-            if (!hasTeamPerms(interaction)) return interaction.reply({ content: '❌ You need **@TEAM**, **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
-        } else {
-            if (!hasPerms(interaction)) return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
+        if (action === 'view' ? !hasTeamPerms(interaction) : !hasPerms(interaction)) {
+            return safeReply(interaction, ephemeral(action === 'view' ? NO_PERMS_TEAM : NO_PERMS_MANAGER));
         }
-
-        if (action === 'view') {
-            try {
-                const schedules = await getSchedules();
-                if (!schedules || schedules.length === 0) {
-                    const s = await interaction.reply({ content: '📭 No events scheduled.', ephemeral: false, fetchReply: true });
-                    setTimeout(() => s.delete().catch(() => {}), 30_000);
-                    return;
-                }
-                const embeds = await Promise.all(schedules.slice(0, 10).map(async e => {
-                    const color = TYPE_COLORS[e.type] || TYPE_COLORS.default;
-                    const emoji = TYPE_EMOJIS[e.type] || '📅';
-                    const label = TYPE_LABELS[e.type] || String(e.type).toUpperCase();
-                    const isMatch = e.type === 'Official Match' || e.type === 'Scrimmage';
-                    const dateStr = normalizeDate(e.date);
-                    const timeStr = String(e.time);
-                    const unix = toUnixTimestamp(dateStr, timeStr);
-                    const ts = unix ? `<t:${unix}:R>` : '';
-                    const tzField = await buildTimezoneField(timeStr);
-                    const title = isMatch ? `You vs ${e.opponent && e.opponent !== 'N/A' ? e.opponent : 'TBD'}` : label;
-                    let desc = `${DIVIDER}\n📅  ${dateStr}　　🕐  ${timeStr} ${BASE_LABEL}　　${ts ? `⏳  ${ts}` : ''}\n`;
-                    if (isMatch && e.opponent && e.opponent !== 'N/A') desc += `🆚  ${e.opponent}\n`;
-                    if (tzField) desc += `${DIVIDER}\n🌍  ${tzField.replace(/\n/g, '　·　')}\n`;
-                    if (e.notes && e.notes !== 'N/A') desc += `${DIVIDER}\n📝  ${e.notes}\n`;
-                    desc += DIVIDER;
-                    return new EmbedBuilder().setColor(color).setAuthor({ name: `${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${e.id}` });
-                }));
-                const sent = await interaction.reply({ embeds, ephemeral: false, fetchReply: true });
-                setTimeout(() => sent.delete().catch(() => {}), 30_000);
-            } catch (err) { console.error(err); await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }); }
-        }
-
-        if (action === 'add') {
-            const type = interaction.options.getString('type');
-            const date = interaction.options.getString('date');
-            const time = interaction.options.getString('time');
-            const opponent = interaction.options.getString('opponent') || null;
-            const notes = interaction.options.getString('notes') || null;
-
-            if (!type) return interaction.reply({ content: '❌ Please provide a **type**.', ephemeral: true });
-            if (!date) return interaction.reply({ content: '❌ Please provide a **date** (DD/MM/YYYY).', ephemeral: true });
-            if (!time) return interaction.reply({ content: '❌ Please provide a **time** (HH:MM).', ephemeral: true });
-            if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) return interaction.reply({ content: '❌ Invalid date. Use **DD/MM/YYYY** (e.g. `27/05/2026`)', ephemeral: true });
-            if (!/^\d{2}:\d{2}$/.test(time)) return interaction.reply({ content: '❌ Invalid time. Use **HH:MM**', ephemeral: true });
-
-            try {
-                const id = await addSchedule(type, date, time, opponent || 'N/A', notes || 'N/A');
-                const color = TYPE_COLORS[type] || TYPE_COLORS.default;
-                const emoji = TYPE_EMOJIS[type] || '📅';
-                const label = TYPE_LABELS[type] || type.toUpperCase();
-                const unix = toUnixTimestamp(date, time);
-                const ts = unix ? `<t:${unix}:R>` : '';
-                const tzField = await buildTimezoneField(time);
-                const isMatch = type === 'Official Match' || type === 'Scrimmage';
-                const title = isMatch ? `You vs ${opponent || 'TBD'}` : label;
-                let desc = `${DIVIDER}\n📅  ${date}　　🕐  ${time} ${BASE_LABEL}　　${ts ? `⏳  ${ts}` : ''}\n`;
-                if (isMatch && opponent) desc += `🆚  ${opponent}\n`;
-                if (tzField) desc += `${DIVIDER}\n🌍  ${tzField.replace(/\n/g, '　·　')}\n`;
-                if (notes) desc += `${DIVIDER}\n📝  ${notes}\n`;
-                desc += DIVIDER;
-                const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `${emoji} ${label}` }).setTitle(title).setDescription(desc).setFooter({ text: `ID: ${id}` }).setTimestamp();
-                const scheduleChannel = interaction.guild.channels.cache.find(c => c.name === 'schedule');
-                if (scheduleChannel) {
-                    const teamRole = interaction.guild.roles.cache.find(r => r.name === 'TEAM');
-                    const sent = await scheduleChannel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
-                    setTimeout(() => sent.delete().catch(() => {}), 30_000);
-                }
-                await updateScheduleMessage(interaction.guild);
-                await interaction.reply({ content: `✅ Event **${type}** on **${date}** at **${time}** added! (ID: \`${id}\`)`, ephemeral: true });
-            } catch (err) { console.error(err); await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }); }
-        }
-
-        if (action === 'remove') {
-            const schedules = await getSchedules();
-            if (!schedules || schedules.length === 0) return interaction.reply({ content: '📭 No events to remove.', ephemeral: true });
-            const options = schedules.slice(0, 25).map(e => {
-                const emoji = TYPE_EMOJIS[e.type] || '📅';
-                const dateStr = normalizeDate(e.date);
-                return new StringSelectMenuOptionBuilder().setLabel(`${e.type} — ${dateStr} at ${e.time}`.slice(0, 100)).setDescription(`ID: ${e.id}`.slice(0, 100)).setValue(String(e.id)).setEmoji(emoji);
-            });
-            const row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('schedule_remove').setPlaceholder('Select event to remove...').addOptions(options));
-            const reply = await interaction.reply({ content: '🗑️ **Select the event to remove:**', components: [row], ephemeral: true });
-            try {
-                const c = await reply.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 30_000 });
-                const event = schedules.find(e => String(e.id) === c.values[0]);
-                const removed = await removeSchedule(c.values[0]);
-                if (!removed) return c.update({ content: '❌ Event not found.', components: [] });
-                const color = event ? (TYPE_COLORS[event.type] || TYPE_COLORS.default) : TYPE_COLORS.default;
-                const emoji = event ? (TYPE_EMOJIS[event.type] || '📅') : '📅';
-                const label = event ? (TYPE_LABELS[event.type] || 'EVENT') : 'EVENT';
-                const dateStr = event ? normalizeDate(event.date) : 'Unknown';
-                const ch = interaction.guild.channels.cache.find(c => c.name === 'schedule');
-                if (ch && event) {
-                    let desc = `${DIVIDER}\n📅  ${dateStr}　　🕐  ${String(event.time)}\n`;
-                    if (event.opponent && event.opponent !== 'N/A') desc += `🆚  ${event.opponent}\n`;
-                    desc += DIVIDER;
-                    const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `${emoji} ${label} — REMOVED` }).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
-                    const sent = await ch.send({ embeds: [embed] }); setTimeout(() => sent.delete().catch(() => {}), 30_000);
-                }
-                await updateScheduleMessage(interaction.guild);
-                await c.update({ content: `✅ **${event?.type}** on **${dateStr}** removed.`, components: [] });
-            } catch { await interaction.editReply({ content: '⏱️ Timed out.', components: [] }); }
-        }
-
-        if (action === 'notes') {
-            const schedules = await getSchedules();
-            if (!schedules || schedules.length === 0) return interaction.reply({ content: '📭 No events to add notes to.', ephemeral: true });
-            const options = schedules.slice(0, 25).map(e => {
-                const emoji = TYPE_EMOJIS[e.type] || '📅';
-                const currentNotes = e.notes && e.notes !== 'N/A' ? `Notes: ${String(e.notes).slice(0, 50)}` : 'No notes yet';
-                return new StringSelectMenuOptionBuilder().setLabel(`${e.type} — ${normalizeDate(e.date)} at ${e.time}`.slice(0, 100)).setDescription(currentNotes.slice(0, 100)).setValue(String(e.id)).setEmoji(emoji);
-            });
-            const row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('schedule_notes').setPlaceholder('Select event...').addOptions(options));
-            const reply = await interaction.reply({ content: '📝 **Select event to update notes:**', components: [row], ephemeral: true });
-            try {
-                const c = await reply.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 30_000 });
-                const event = schedules.find(e => String(e.id) === c.values[0]);
-                if (!event) return c.update({ content: '❌ Event not found.', components: [] });
-                const dateStr = normalizeDate(event.date);
-                await c.update({ content: `📝 **Type notes for: ${event.type} on ${dateStr} at ${event.time}**\n\nSend as a message. You have **60 seconds**.`, components: [] });
-                const collector = interaction.channel.createMessageCollector({ filter: m => m.author.id === interaction.user.id, max: 1, time: 60_000 });
-                collector.on('collect', async msg => {
-                    const notes = msg.content.trim();
-                    msg.delete().catch(() => {});
-                    try {
-                        const updated = await updateScheduleNotes(event.id, notes);
-                        if (!updated) return interaction.followUp({ content: '❌ Event not found.', ephemeral: true });
-                        const color = TYPE_COLORS[event.type] || TYPE_COLORS.default;
-                        const emoji = TYPE_EMOJIS[event.type] || '📅';
-                        const label = TYPE_LABELS[event.type] || String(event.type).toUpperCase();
-                        let desc = `${DIVIDER}\n📅  ${dateStr}　　🕐  ${String(event.time)}\n${DIVIDER}\n📝  ${notes}\n${DIVIDER}`;
-                        const embed = new EmbedBuilder().setColor(color).setAuthor({ name: `${emoji} ${label} — NOTES UPDATED` }).setDescription(desc).setFooter({ text: `ID: ${event.id}` }).setTimestamp();
-                        const ch = interaction.guild.channels.cache.find(c => c.name === 'schedule');
-                        if (ch) { const s = await ch.send({ embeds: [embed] }); setTimeout(() => s.delete().catch(() => {}), 30_000); }
-                        await updateScheduleMessage(interaction.guild);
-                        await interaction.followUp({ content: `✅ Notes updated for **${event.type}** on **${dateStr}**.`, ephemeral: true });
-                    } catch (err) { console.error(err); await interaction.followUp({ content: '❌ Something went wrong.', ephemeral: true }); }
-                });
-                collector.on('end', c => { if (c.size === 0) interaction.followUp({ content: '⏱️ Timed out.', ephemeral: true }); });
-            } catch { await interaction.editReply({ content: '⏱️ Timed out.', components: [] }); }
-        }
-    }
+        await ACTIONS[action](interaction);
+    },
 };

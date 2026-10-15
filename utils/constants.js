@@ -1,125 +1,116 @@
-const LOGO = 'https://cdn.discordapp.com/attachments/908857825520943144/1508572777605759016/007964c9-c491-47da-849a-c8b104902184.png';
+const { roleIds } = require('./config');
+const { normalizeDate, toISODate, lisbonToUnix } = require('./time');
+
 const DIVIDER = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-const PORTUGAL_UTC_OFFSET = 1; // UTC+1
+
+// The bot looks for these channels by name.
+const CHANNELS = {
+    schedule: 'schedule',
+    absences: 'absences',
+    reminders: 'reminders',
+    announcements: 'announcements',
+};
+
+const NO_PERMS_MANAGER = '❌ You need **@OWNER** or **@MANAGERS** to use this.';
+const NO_PERMS_TEAM = '❌ You need **@TEAM**, **@OWNER** or **@MANAGERS** to use this.';
 
 const TYPE_COLORS = {
-    'Practice': 0x378ADD,
-    'Official Match': 0xF0A500,
-    'Scrimmage': 0xE67E22,
-    'VOD Review': 0x9B59B6,
-    'default': 0xE74C3C,
+    Practice: 0x378add,
+    'Official Match': 0xf0a500,
+    Scrimmage: 0xe67e22,
+    'VOD Review': 0x9b59b6,
+    default: 0xe74c3c,
 };
 
 const TYPE_EMOJIS = {
-    'Practice': '🎯',
+    Practice: '🎯',
     'Official Match': '🏆',
-    'Scrimmage': '⚔️',
+    Scrimmage: '⚔️',
     'VOD Review': '🎥',
 };
 
 const TYPE_LABELS = {
-    'Practice': 'PRACTICE',
+    Practice: 'PRACTICE',
     'Official Match': 'OFFICIAL MATCH',
-    'Scrimmage': 'SCRIMMAGE',
+    Scrimmage: 'SCRIMMAGE',
     'VOD Review': 'VOD REVIEW',
 };
 
 const ROLE_EMOJIS = {
-    'IGL': '🎙️', 'Entry': '💥', '2nd Entry': '⚡', 'AWPer': '🔭',
-    'Rifler': '🔫', 'Lurker': '👤', 'Anchor': '⚓', 'Spacemaker': '🚀', 'Rotation': '🔄',
+    IGL: '🎙️',
+    Entry: '💥',
+    '2nd Entry': '⚡',
+    AWPer: '🔭',
+    Rifler: '🔫',
+    Lurker: '👤',
+    Anchor: '⚓',
+    Spacemaker: '🚀',
+    Rotation: '🔄',
 };
 
-const ALL_ROLES = [
-    { name: 'IGL', value: 'IGL' },
-    { name: 'Entry', value: 'Entry' },
-    { name: '2nd Entry', value: '2nd Entry' },
-    { name: 'AWPer', value: 'AWPer' },
-    { name: 'Rifler', value: 'Rifler' },
-    { name: 'Lurker', value: 'Lurker' },
-    { name: 'Anchor', value: 'Anchor' },
-    { name: 'Spacemaker', value: 'Spacemaker' },
-    { name: 'Rotation', value: 'Rotation' },
-];
+const ALL_ROLES = Object.keys(ROLE_EMOJIS).map((name) => ({ name, value: name }));
 
 const STATUS_INDICATORS = {
-    'Main': '🟢 Main',
-    'Subs': '🟡 Subs',
-    'Tryouts': '🔵 Tryouts',
+    Main: '🟢 Main',
+    Subs: '🟡 Subs',
+    Tryouts: '🔵 Tryouts',
     'Stand-ins': '⚪ Stand-ins',
 };
 
+// ─── Permissions (by role ID, never by role name) ────────────
+
+function memberRoleIds(interaction) {
+    const roles = interaction.member?.roles;
+    if (!roles) return [];
+    return Array.isArray(roles) ? roles : [...roles.cache.keys()];
+}
+
 function hasPerms(interaction) {
-    return interaction.member.roles.cache.some(r => r.name === 'OWNER' || r.name === 'MANAGERS');
+    const ids = memberRoleIds(interaction);
+    const { owner, managers } = roleIds();
+    return ids.includes(owner) || ids.includes(managers);
 }
 
 function hasTeamPerms(interaction) {
-    return interaction.member.roles.cache.some(r => r.name === 'OWNER' || r.name === 'MANAGERS' || r.name === 'TEAM');
+    const ids = memberRoleIds(interaction);
+    const { owner, managers, team } = roleIds();
+    return ids.includes(owner) || ids.includes(managers) || ids.includes(team);
 }
 
-// Fixed: converts Portugal time (UTC+1) to correct Unix timestamp
-// Previously used local time which was wrong on Railway (UTC server)
-function toUnixTimestamp(date, time) {
-    try {
-        let day, month, year;
-        const dateStr = String(date);
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-            [day, month, year] = dateStr.split('/').map(Number);
-        } else if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) {
-            [day, month, year] = dateStr.split('-').map(Number); year = 2000 + year;
-        } else if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
-            [year, month, day] = dateStr.split('/').map(Number);
-        } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-            [year, month, day] = dateStr.split('-').map(Number);
-        } else return null;
-        const [hours, minutes] = String(time).split(':').map(Number);
-        // Use Date.UTC and subtract Portugal offset to get correct UTC timestamp
-        return Math.floor(Date.UTC(year, month - 1, day, hours - PORTUGAL_UTC_OFFSET, minutes, 0) / 1000);
-    } catch { return null; }
+// ─── Discord lookups ─────────────────────────────────────────
+
+function findChannel(guild, name) {
+    return guild.channels.cache.find((channel) => channel.name === name) ?? null;
 }
 
-function normalizeDate(date) {
-    try {
-        const dateStr = String(date);
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
-        if (typeof date === 'object' && date instanceof Date) {
-            return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-        }
-        if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) {
-            const [d, m, y] = dateStr.split('-');
-            return `${d}/${m}/20${y}`;
-        }
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-            const [y, m, d] = dateStr.split('-');
-            return `${d}/${m}/${y}`;
-        }
-        if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
-            const [y, m, d] = dateStr.split('/');
-            return `${d}/${m}/${y}`;
-        }
-        return dateStr;
-    } catch { return String(date); }
+function getTeamRole(guild) {
+    return guild.roles.cache.get(roleIds().team) ?? null;
 }
 
-function toISODate(date) {
-    try {
-        const dateStr = String(date);
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-            const [d, m, y] = dateStr.split('/');
-            return `${y}-${m}-${d}`;
-        }
-        if (/^\d{2}-\d{2}-\d{2}$/.test(dateStr)) {
-            const [d, m, y] = dateStr.split('-');
-            return `20${y}-${m}-${d}`;
-        }
-        if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) return dateStr.replace(/\//g, '-');
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-        if (typeof date === 'object' && date instanceof Date) return date.toISOString().split('T')[0];
-        return dateStr;
-    } catch { return String(date); }
+// Message options that ping @TEAM and nobody else. Spread it into channel.send({ ... }).
+function teamMention(guild) {
+    const role = getTeamRole(guild);
+    return role ? { content: `${role}`, allowedMentions: { roles: [role.id] } } : { content: '' };
 }
 
 module.exports = {
-    LOGO, DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS,
-    ROLE_EMOJIS, ALL_ROLES, STATUS_INDICATORS,
-    hasPerms, hasTeamPerms, toUnixTimestamp, normalizeDate, toISODate,
+    DIVIDER,
+    CHANNELS,
+    NO_PERMS_MANAGER,
+    NO_PERMS_TEAM,
+    TYPE_COLORS,
+    TYPE_EMOJIS,
+    TYPE_LABELS,
+    ROLE_EMOJIS,
+    ALL_ROLES,
+    STATUS_INDICATORS,
+    hasPerms,
+    hasTeamPerms,
+    findChannel,
+    getTeamRole,
+    teamMention,
+    // date helpers live in time.js; re-exported here for convenience
+    normalizeDate,
+    toISODate,
+    toUnixTimestamp: lisbonToUnix,
 };

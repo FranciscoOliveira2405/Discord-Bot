@@ -1,70 +1,99 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const fs = require('fs');
+const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const path = require('path');
+const { loadConfig, getMainGuild } = require('./utils/config');
+const { findCommandFiles } = require('./utils/commandFiles');
+const { closeDb } = require('./utils/dbManager');
+const { ephemeral, safeReply } = require('./utils/reply');
 const { startReminders } = require('./utils/managers/reminderManager');
 const { updateScheduleMessage } = require('./utils/managers/scheduleManager');
 const { updateAbsenceMessage } = require('./utils/managers/absenceManager');
+const { syncMembers } = require('./utils/managers/memberSync');
+
+let config;
+try {
+    config = loadConfig();
+} catch (err) {
+    console.error(`❌ ${err.message}`);
+    process.exit(1);
+}
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-    ]
+    // Only what the bot needs. GuildMembers is used to link players to their Discord ID at startup.
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+    // Nothing the users type can ping anyone. Pings are enabled explicitly for @TEAM only.
+    allowedMentions: { parse: [], repliedUser: false },
 });
 
-function loadCommands(dir) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            loadCommands(fullPath);
-        } else if (entry.isFile() && entry.name.endsWith('.js')) {
-            const command = require(fullPath);
-            if (command.data && command.execute) {
-                client.commands.set(command.data.name, command);
-                console.log(`✅ Loaded command: ${command.data.name}`);
-            }
-        }
+client.commands = new Collection();
+for (const file of findCommandFiles(path.join(__dirname, 'commands'))) {
+    const command = require(file);
+    if (command.data && command.execute) {
+        client.commands.set(command.data.name, command);
+        console.log(`✅ Loaded command: ${command.data.name}`);
     }
 }
 
-client.commands = new Collection();
-loadCommands(path.join(__dirname, 'commands'));
+client.once(Events.ClientReady, async (readyClient) => {
+    console.log(`\n🤖 Bot is online as ${readyClient.user.tag}`);
 
-client.once('ready', async () => {
-    console.log(`\n🤖 Bot is online as ${client.user.tag}`);
-    console.log(`📡 Connected to ${client.guilds.cache.size} server(s)`);
-    startReminders(client);
+    const guild = getMainGuild(readyClient);
+    if (!guild) {
+        console.error('❌ The bot is not in the server set in GUILD_ID. Invite it, then restart.');
+        return;
+    }
+
+    startReminders(readyClient);
 
     try {
-        const guild = client.guilds.cache.first();
-        if (guild) {
-            await updateScheduleMessage(guild);
-            await updateAbsenceMessage(guild, false);
-            console.log('✅ Boards refreshed on startup');
-        }
+        await syncMembers(guild);
+    } catch (err) {
+        console.error('⚠️ Could not sync members (is the Server Members Intent enabled?):', err.message);
+    }
+
+    try {
+        await updateScheduleMessage(guild);
+        await updateAbsenceMessage(guild, false);
+        console.log('✅ Boards refreshed on startup');
     } catch (err) {
         console.error('⚠️ Could not refresh boards on startup:', err);
     }
 });
 
-client.on('interactionCreate', async interaction => {
+client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
+    if (interaction.guildId !== config.GUILD_ID) {
+        return safeReply(interaction, ephemeral('❌ This bot only works in its own server.'));
+    }
+
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
     try {
         await command.execute(interaction);
     } catch (err) {
-        console.error(`❌ Error executing ${interaction.commandName}:`, err);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: '❌ There was an error executing this command.', ephemeral: true });
-        } else {
-            await interaction.reply({ content: '❌ There was an error executing this command.', ephemeral: true });
-        }
+        console.error(`❌ Error executing /${interaction.commandName}:`, err);
+        await safeReply(interaction, ephemeral('❌ There was an error executing this command.'));
     }
 });
 
-client.login(process.env.TOKEN);
+client.on(Events.Error, (err) => console.error('Discord client error:', err));
+process.on('unhandledRejection', (reason) => console.error('Unhandled promise rejection:', reason));
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught exception:', err);
+    process.exit(1); // let the host restart the bot in a clean state
+});
+
+// Clean shutdown (Ctrl+C or the host stopping the process)
+function shutdown(signal) {
+    console.log(`\n${signal} received, shutting down...`);
+    Promise.resolve(client.destroy()).finally(() => {
+        closeDb();
+        process.exit(0);
+    });
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+client.login(config.TOKEN).catch((err) => {
+    console.error('❌ Could not log in. Check TOKEN in your .env file:', err.message);
+    process.exit(1);
+});

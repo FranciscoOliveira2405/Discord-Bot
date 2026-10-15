@@ -1,40 +1,60 @@
 const { getTimezones } = require('../dbManager');
+const { zoneOffsetMs, lisbonOffsetHours, lisbonToUnix, formatInOffset, nowUnix } = require('../time');
 
 const BASE_LABEL = 'Portugal';
-const BASE_OFFSET = 1; // GMT+1
 
-function parseOffset(gmtString) {
-    const match = String(gmtString).toUpperCase().match(/^GMT([+-]\d+)$/);
-    if (!match) return null;
-    return parseInt(match[1], 10);
+// Accepts "GMT+2", "GMT-3", "GMT+5:30" or an IANA name such as "Europe/Berlin".
+// IANA names follow daylight saving time automatically; GMT offsets are fixed.
+// Returns null when the text is not a valid time zone.
+function resolveZone(input) {
+    const text = String(input).trim();
+
+    const gmt = /^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/i.exec(text);
+    if (gmt) {
+        const sign = gmt[1] === '-' ? -1 : 1;
+        const hours = Number(gmt[2]);
+        const minutes = Number(gmt[3] ?? 0);
+        const offsetHours = sign * (hours + minutes / 60);
+        if (minutes > 59 || offsetHours < -12 || offsetHours > 14) return null;
+        const suffix = minutes ? `:${String(minutes).padStart(2, '0')}` : '';
+        return { kind: 'offset', offsetHours, id: `GMT${gmt[1]}${hours}${suffix}` };
+    }
+
+    if (text.includes('/') && !/^[+-]/.test(text)) {
+        try {
+            const zone = new Intl.DateTimeFormat('en-US', { timeZone: text }).resolvedOptions().timeZone;
+            return { kind: 'iana', zone, id: zone };
+        } catch {
+            return null;
+        }
+    }
+    return null;
 }
 
-function convertTime(time, fromOffset, toOffset) {
-    const [hours, minutes] = time.split(':').map(Number);
-    if (isNaN(hours) || isNaN(minutes)) return null;
-    const totalMinutes = hours * 60 + minutes;
-    const diffMinutes = (toOffset - fromOffset) * 60;
-    let converted = totalMinutes + diffMinutes;
-    converted = ((converted % (24 * 60)) + 24 * 60) % (24 * 60);
-    const h = String(Math.floor(converted / 60)).padStart(2, '0');
-    const m = String(converted % 60).padStart(2, '0');
-    return `${h}:${m}`;
+// Current GMT offset of the base time zone, e.g. "GMT+1" in summer and "GMT+0" in winter
+function currentBaseGmt() {
+    const hours = lisbonOffsetHours(nowUnix());
+    return `GMT${hours < 0 ? '-' : '+'}${Math.abs(hours)}`;
 }
 
-async function buildTimezoneField(time) {
-    const timezones = await getTimezones();
-    if (!timezones || timezones.length === 0) return null;
+// One line per configured time zone with the event time converted to it.
+function buildTimezoneField(time, date) {
+    const timezones = getTimezones();
+    if (timezones.length === 0) return null;
+
+    const unix = (date ? lisbonToUnix(date, time) : null) ?? nowUnix();
+    const baseOffset = lisbonOffsetHours(unix);
+
     const lines = [];
     for (const { label, tz } of timezones) {
-        const offset = parseOffset(tz);
-        if (offset === null) continue;
-        if (offset === BASE_OFFSET && label === BASE_LABEL) continue;
-        const converted = convertTime(time, BASE_OFFSET, offset);
-        if (!converted) continue;
-        lines.push(`**${label}:** ${converted}`);
+        const zone = resolveZone(tz);
+        if (!zone) continue;
+        const offsetHours =
+            zone.kind === 'offset' ? zone.offsetHours : zoneOffsetMs(unix * 1000, zone.zone) / 3_600_000;
+        if (label === BASE_LABEL && offsetHours === baseOffset) continue;
+        lines.push(`**${label}:** ${formatInOffset(unix, offsetHours)}`);
     }
-    if (lines.length === 0) return null;
-    return lines.join('\n');
+    return lines.length > 0 ? lines.join('\n') : null;
 }
 
-module.exports = { BASE_LABEL, BASE_OFFSET, parseOffset, convertTime, buildTimezoneField };
+module.exports = { BASE_LABEL, resolveZone, currentBaseGmt, buildTimezoneField };

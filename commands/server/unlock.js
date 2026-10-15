@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { DIVIDER, hasPerms } = require('../../utils/constants');
+const { DIVIDER, NO_PERMS_MANAGER, hasPerms } = require('../../utils/constants');
+const { ephemeral, safeReply } = require('../../utils/reply');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -8,11 +9,21 @@ module.exports = {
         .setDefaultMemberPermissions(0),
 
     async execute(interaction) {
-        if (!hasPerms(interaction)) return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
+        if (!hasPerms(interaction)) return safeReply(interaction, ephemeral(NO_PERMS_MANAGER));
         try {
-            await interaction.channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { SendMessages: null });
-            const embed = new EmbedBuilder().setColor(0xE74C3C).setAuthor({ name: 'CHANNEL UNLOCKED' }).setDescription(`${DIVIDER}\n🔓  This channel has been unlocked.\n${DIVIDER}`).setFooter({ text: `Unlocked by ${interaction.user.tag}` }).setTimestamp();
-            await interaction.reply({ embeds: [embed] });
-        } catch (err) { console.error(err); await interaction.reply({ content: '❌ Could not unlock channel.', ephemeral: true }); }
-    }
+            await interaction.channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
+                SendMessages: null,
+            });
+        } catch (err) {
+            console.error(err);
+            return safeReply(interaction, ephemeral('❌ Could not unlock channel.'));
+        }
+        const embed = new EmbedBuilder()
+            .setColor(0xe74c3c)
+            .setAuthor({ name: 'CHANNEL UNLOCKED' })
+            .setDescription(`${DIVIDER}\n🔓  This channel has been unlocked.\n${DIVIDER}`)
+            .setFooter({ text: `Unlocked by ${interaction.user.tag}` })
+            .setTimestamp();
+        await interaction.reply({ embeds: [embed] });
+    },
 };

@@ -1,100 +1,100 @@
-# Discord Bot
+# Team Bot
 
-A bot to manage a Discord server for a team: scheduling, roster, absences, timezones, announcements and moderation, all through slash commands.
+[![CI](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/ci.yml/badge.svg)](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/codeql.yml/badge.svg)](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/codeql.yml)
+![Node.js](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
+![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?logo=discord&logoColor=white)
+[![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-Built with Node.js and Discord.js v14, backed by SQLite.
+A Discord bot that helps a team run its server: schedule, roster, absences, timezones, announcements and moderation, all through slash commands.
+
+Built with Node.js and discord.js v14, with data stored in a local SQLite database.
 
 ---
 
 ## Features
 
 ### Schedule
-- `/schedule` : view, add, remove events and edit notes in one command
-- Event types: **Practice**, **Official Match**, **Scrimmage**, **VOD Review** : each color-coded
-- Auto-updating `#schedule` board that always reflects the current events
-- Events sorted chronologically
-- Automatic midnight cleanup of expired events
-- 9 AM daily reminders for the day's events
-- `/reminder` : manually push a reminder at any time
-- Timezone conversions shown on every event
+
+- `/schedule` : view, add and remove events, and edit their notes
+- Event types: **Practice**, **Official Match**, **Scrimmage**, **VOD Review**, each color-coded
+- Auto-updating `#schedule` board, sorted chronologically
+- Every event shows a countdown and the time in each configured timezone
+- Dates and times are validated, and events in the past are refused
+- Expired events are removed automatically at midnight
+- Daily reminders at 9 AM for the day's events, and `/reminder` to send one by hand
 
 ### Roster
+
 - `/roster` : view, add, update and remove players
-- Multi-role support per player (e.g. Entry + IGL)
+- Several roles per player (for example Entry + IGL)
 - Status categories: Main, Subs, Tryouts, Stand-ins
-- Sorted by status
-- Viewable by all TEAM members
+- Players are tracked by their Discord ID, so a username change never breaks their entry
 
 ### Absences
-- `/absent add` : mark a player absent for a single day or a **date range** (e.g. `01/06/2026-05/06/2026`)
-- `/absent remove` : remove a single date, a range, or all absences for a player
-- Auto-updating `#absences` board grouping consecutive dates into ranges
-- Counts unique players, not individual days
-- Duplicate-date protection
-- Auto-expires at midnight
+
+- `/absent add` : one day or a **date range** (`01/06/2026-05/06/2026`, up to 30 days)
+- `/absent remove` : remove one date, one range, or all absences of a player
+- Auto-updating `#absences` board that groups consecutive days into ranges and counts players, not days
+- Duplicate dates are skipped, and past absences expire at midnight
 
 ### Timezones
-- `/timezone add/remove/view` : manage team timezones
-- Base timezone: **Portugal (GMT+1)**
-- Converts every event time to all configured timezones
 
-### Announcements
-- `/announce` : formatted announcement to `#announcements`, pings @TEAM
+- `/timezone add | remove | view` : choose the timezones shown on every event
+- Base timezone: **Portugal (Europe/Lisbon)**, which follows the summer and winter clock changes
+- Add a zone as a fixed offset (`GMT+2`, `GMT-3`, `GMT+5:30`) or as a name (`Europe/Berlin`).
+  Names follow daylight saving time automatically; fixed offsets do not.
 
-### Server Moderation
-- `/clear` : bulk delete up to 100 messages
-- `/slowmode` : set channel slowmode
-- `/lock` / `/unlock` : lock or unlock a channel
+### Announcements and moderation
 
----
-
-## Permissions
-
-| Role | Access |
-|------|--------|
-| **OWNER** + **MANAGERS** | Full access to everything |
-| **TEAM** | View schedule, view roster, manage absences |
-
-Restricted commands are hidden from TEAM via Discord integrations.
+- `/announce` : formatted announcement in `#announcements`, pinging @TEAM
+- `/clear` : delete 1 to 100 recent messages (Discord cannot bulk delete messages older than 14 days)
+- `/slowmode` : set the channel slowmode
+- `/lock` and `/unlock` : lock or unlock a channel
 
 ---
 
-## Tech Stack
+## Commands and permissions
 
-- **Node.js 20+** + **Discord.js v14**
-- **better-sqlite3** : persistent local database
-- **node-cron** : scheduled tasks (reminders, cleanup)
+Access is decided by role **ID**, never by role name.
 
----
+| Command                              | Who can use it           |
+| ------------------------------------ | ------------------------ |
+| `/schedule view`                     | TEAM, MANAGERS, OWNER    |
+| `/roster view`                       | TEAM, MANAGERS, OWNER    |
+| `/absent add`, `/absent remove`      | TEAM, MANAGERS, OWNER    |
+| `/schedule add`, `remove`, `notes`   | MANAGERS, OWNER          |
+| `/roster add`, `update`, `remove`    | MANAGERS, OWNER          |
+| `/timezone`, `/reminder`             | MANAGERS, OWNER          |
+| `/announce`                          | MANAGERS, OWNER          |
+| `/clear`, `/slowmode`, `/lock`, `/unlock` | MANAGERS, OWNER     |
 
-## Project Structure
-
-```text
-Discord-Bot/
-├─ commands/
-│  ├─ events/      → schedule, reminder
-│  ├─ general/     → announce
-│  ├─ server/      → clear, lock, slowmode, unlock
-│  └─ team/        → roster, absent, timezone
-├─ utils/
-│  ├─ managers/    → schedule, absence, reminder, timezone
-│  ├─ constants.js → shared config, helpers, permissions
-│  └─ dbManager.js → SQLite data layer
-├─ data/           → SQLite database (auto-created)
-├─ index.js        → entry point
-├─ deploy-commands.js
-└─ package.json
-```
+The commands that are entirely for managers (`/timezone`, `/reminder`, `/announce`, `/clear`, `/slowmode`, `/lock`, `/unlock`)
+are hidden in Discord by default. See [step 5 of the setup](#5-let-your-managers-use-the-restricted-commands).
+For `/schedule` and `/roster` the bot checks the role of whoever picks an action.
+The bot only answers inside the server set in `GUILD_ID`.
 
 ---
 
 ## Setup
 
-### Prerequisites
-- Node.js 20 or newer
-- A Discord bot application ([Discord Developer Portal](https://discord.com/developers/applications))
+### Requirements
 
-### Installation
+- Node.js 20 or newer
+- A Discord application with a bot ([Discord Developer Portal](https://discord.com/developers/applications))
+
+### 1. Create the bot
+
+In the Developer Portal:
+
+1. **Bot** tab: copy the token (reset it if it was ever exposed).
+2. Under **Privileged Gateway Intents**, turn on **Server Members Intent**. The bot does not need Message Content Intent.
+3. Turn **Public Bot** off, so nobody else can add your bot to another server.
+4. Invite the bot with the scopes `bot` and `applications.commands`. It needs these permissions:
+   View Channels, Send Messages, Embed Links, Read Message History, Manage Messages (for `/clear`),
+   Manage Channels (for `/lock` and `/slowmode`), and permission to mention roles (for @TEAM pings).
+
+### 2. Install
 
 ```bash
 git clone https://github.com/FranciscoOliveira2405/Discord-Bot.git
@@ -102,70 +102,125 @@ cd Discord-Bot
 npm install
 ```
 
-### Configuration
+### 3. Configure
 
-Create a `.env` file in the root:
+Copy `.env.example` to `.env` and fill it in:
 
 ```text
 TOKEN=your_bot_token
 CLIENT_ID=your_application_id
 GUILD_ID=your_server_id
+OWNER_ROLE_ID=id_of_the_OWNER_role
+MANAGERS_ROLE_ID=id_of_the_MANAGERS_role
+TEAM_ROLE_ID=id_of_the_TEAM_role
 ```
 
-**Never commit your `.env` file or share your bot token.** The file is already listed in `.gitignore`. If a token is ever exposed, reset it immediately in the Discord Developer Portal.
+To copy an ID, turn on **Developer Mode** in Discord (User Settings > Advanced), then right-click the server or role and choose **Copy ID**.
 
-### Register slash commands
+The bot checks these values when it starts and tells you exactly what is missing or wrong.
+
+**Never commit your `.env` file or share your bot token.** It is already in `.gitignore`.
+If a token is ever exposed, reset it immediately in the Developer Portal.
+
+### 4. Register the slash commands
 
 ```bash
-node deploy-commands.js
+npm run deploy
 ```
 
-### Run
+Run this again whenever a command definition changes.
+
+### 5. Let your managers use the restricted commands
+
+The manager-only commands are hidden from everyone except server administrators until you allow them.
+In Discord, open **Server Settings > Integrations > your bot**, and for each of `/timezone`, `/reminder`, `/announce`,
+`/clear`, `/slowmode`, `/lock` and `/unlock` add the **OWNER** and **MANAGERS** roles.
+
+### 6. Start the bot
 
 ```bash
 npm start
 ```
 
----
+The bot has to keep running to answer commands and send reminders. Run it on a machine that stays on, or use a process manager such as [pm2](https://pm2.keymetrics.io/).
 
-## Required Discord Channels
+### Required channels and roles
 
-The bot looks for these channels by name:
+The bot finds these channels by name:
 
-| Channel | Purpose |
-|---------|---------|
-| `#schedule` | Auto-updating event board |
-| `#absences` | Auto-updating absence board |
-| `#reminders` | Daily and manual reminders |
-| `#announcements` | Announcements |
+| Channel          | Purpose                      |
+| ---------------- | ---------------------------- |
+| `#schedule`      | Auto-updating event board    |
+| `#absences`      | Auto-updating absence board  |
+| `#reminders`     | Daily and manual reminders   |
+| `#announcements` | Announcements                |
 
-## Required Roles
-
-`OWNER`, `MANAGERS`, `TEAM`
+Roles: **OWNER**, **MANAGERS** and **TEAM** (their IDs go in `.env`).
 
 ---
 
-## Hosting
+## Data
 
-The bot needs to run continuously (24/7) on any machine or host with Node.js 20+. Install dependencies with `npm ci`, set the environment variables from the Configuration section, then run `npm start`.
+Everything is stored in `data/bot.db` (SQLite). Back this file up if the data matters to you.
+The `data/` folder is created automatically and is never committed.
 
-When adding a dependency, run `npm install` locally and commit the updated `package-lock.json`.
+## Upgrading from 1.x
+
+1. Copy the new files over your project and run `npm ci`.
+2. Add `OWNER_ROLE_ID`, `MANAGERS_ROLE_ID` and `TEAM_ROLE_ID` to your `.env`. The bot will not start without them.
+3. Run `npm run deploy` again, then check in **Server Settings > Integrations** that your managers can still see the restricted commands.
+4. Start the bot. Your existing data is kept: `v3xys.db` is renamed to `bot.db`, and players and absences are linked to their Discord IDs when the bot starts (look for `Member sync` in the console).
+
+Breaking changes: the CS2 server monitor was removed, permissions use role IDs instead of role names, and editing event notes now opens a pop-up form. See the [changelog](CHANGELOG.md) for everything.
 
 ---
+
+## Development
+
+```bash
+npm run lint           # ESLint
+npm run format:check   # Prettier
+npm test               # unit tests (Node's built-in test runner)
+npm run check          # loads every slash command and validates it
+npm run verify         # all of the above
+```
+
+The same checks run on every push and pull request through GitHub Actions. CodeQL scans the code for vulnerabilities and Dependabot keeps dependencies up to date.
+
+### Project structure
+
+```text
+Discord-Bot/
+├─ commands/
+│  ├─ events/       schedule, reminder
+│  ├─ general/      announce
+│  ├─ server/       clear, lock, slowmode, unlock
+│  └─ team/         roster, absent, timezone
+├─ utils/
+│  ├─ managers/     boards, reminders, timezones, member sync
+│  ├─ config.js     environment variables
+│  ├─ constants.js  shared constants and permission checks
+│  ├─ dbManager.js  SQLite data layer
+│  ├─ embeds.js     shared embed builders
+│  └─ time.js       dates, times and timezones
+├─ test/            unit tests
+├─ scripts/         helper scripts (used by CI)
+├─ .github/         CI, CodeQL, Dependabot, templates, security policy
+├─ index.js         entry point
+└─ deploy-commands.js
+```
+
+---
+
+## Security
+
+Please report vulnerabilities privately. See the [security policy](.github/SECURITY.md).
 
 ## Versioning
 
-Current version: **1.3.2**
-
-- **1.0** : Initial release (Excel storage)
-- **1.1** : Migrated to SQLite, fixed absence board, roster status system (Main/Subs/Tryouts/Stand-ins)
-- **1.2** : Full rebuild, all data on SQLite, chronological sorting, board refresh on startup, Portugal timezone fix
-- **1.2.1** : Date-range absences, range grouping on the board
-- **1.3** : Absence counts by player
-- **1.3.2** : Dependency updates
-
----
+This project follows [Semantic Versioning](https://semver.org/). The current version is **2.0.0**.
+All changes are listed in the [changelog](CHANGELOG.md).
 
 ## License
 
-ISC
+[ISC](LICENSE)

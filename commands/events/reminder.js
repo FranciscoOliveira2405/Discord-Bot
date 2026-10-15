@@ -1,7 +1,15 @@
-const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ComponentType } = require('discord.js');
 const { getSchedules } = require('../../utils/dbManager');
-const { DIVIDER, TYPE_COLORS, TYPE_EMOJIS, TYPE_LABELS, toUnixTimestamp, normalizeDate, hasPerms } = require('../../utils/constants');
-const { BASE_LABEL, buildTimezoneField } = require('../../utils/managers/timezoneManager');
+const {
+    CHANNELS,
+    NO_PERMS_MANAGER,
+    hasPerms,
+    findChannel,
+    teamMention,
+    normalizeDate,
+} = require('../../utils/constants');
+const { buildEventEmbed, eventSelect } = require('../../utils/embeds');
+const { EPHEMERAL, ephemeral, safeReply, isTimeout } = require('../../utils/reply');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,62 +18,39 @@ module.exports = {
         .setDefaultMemberPermissions(0),
 
     async execute(interaction) {
-        if (!hasPerms(interaction)) return interaction.reply({ content: '❌ You need **@OWNER** or **@MANAGERS** to use this.', ephemeral: true });
-        const schedules = await getSchedules();
-        if (!schedules || schedules.length === 0) return interaction.reply({ content: '📭 No events scheduled.', ephemeral: true });
+        if (!hasPerms(interaction)) return safeReply(interaction, ephemeral(NO_PERMS_MANAGER));
+        const schedules = getSchedules();
+        if (schedules.length === 0) return safeReply(interaction, ephemeral('📭 No events scheduled.'));
 
-        const options = schedules.slice(0, 25).map(e => {
-            const emoji = TYPE_EMOJIS[e.type] || '📅';
-            const dateStr = normalizeDate(e.date);
-            return new StringSelectMenuOptionBuilder()
-                .setLabel(`${e.type} — ${dateStr} at ${e.time}`.slice(0, 100))
-                .setDescription(`ID: ${e.id}`.slice(0, 100))
-                .setValue(String(e.id))
-                .setEmoji(emoji);
+        const message = await interaction.reply({
+            content: '⚠️ **Select the event to send a reminder for:**',
+            components: [eventSelect('reminder_select', 'Select event to remind...', schedules)],
+            flags: EPHEMERAL,
         });
 
-        const row = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder().setCustomId('reminder_select').setPlaceholder('Select event to remind...').addOptions(options)
-        );
-        const reply = await interaction.reply({ content: '⚠️ **Select the event to send a reminder for:**', components: [row], ephemeral: true });
-
+        let selection;
         try {
-            const c = await reply.awaitMessageComponent({ componentType: ComponentType.StringSelect, time: 30_000 });
-            const event = schedules.find(e => String(e.id) === c.values[0]);
-            if (!event) return c.update({ content: '❌ Event not found.', components: [] });
+            selection = await message.awaitMessageComponent({
+                componentType: ComponentType.StringSelect,
+                time: 30_000,
+            });
+        } catch (err) {
+            if (!isTimeout(err)) throw err;
+            return interaction.editReply({ content: '⏱️ Timed out.', components: [] });
+        }
 
-            const color = TYPE_COLORS[event.type] || TYPE_COLORS.default;
-            const emoji = TYPE_EMOJIS[event.type] || '📅';
-            const label = TYPE_LABELS[event.type] || String(event.type).toUpperCase();
-            const isMatch = event.type === 'Official Match' || event.type === 'Scrimmage';
-            const dateStr = normalizeDate(event.date);
-            const timeStr = String(event.time);
-            const unix = toUnixTimestamp(dateStr, timeStr);
-            const ts = unix ? `<t:${unix}:R>` : '';
-            const tzField = await buildTimezoneField(timeStr);
-            const title = isMatch ? `You vs ${event.opponent && event.opponent !== 'N/A' ? event.opponent : 'TBD'}` : label;
+        const event = schedules.find((e) => String(e.id) === selection.values[0]);
+        if (!event) return selection.update({ content: '❌ Event not found.', components: [] });
 
-            let desc = `${DIVIDER}\n📅  ${dateStr}　　🕐  ${timeStr} ${BASE_LABEL}　　${ts ? `⏳  ${ts}` : ''}\n`;
-            if (isMatch && event.opponent && event.opponent !== 'N/A') desc += `🆚  ${event.opponent}\n`;
-            if (tzField) desc += `${DIVIDER}\n🌍  ${tzField.replace(/\n/g, '　·　')}\n`;
-            if (event.notes && event.notes !== 'N/A') desc += `${DIVIDER}\n📝  ${event.notes}\n`;
-            desc += DIVIDER;
+        const channel = findChannel(interaction.guild, CHANNELS.reminders);
+        if (!channel) return selection.update({ content: '❌ #reminders channel not found.', components: [] });
 
-            const embed = new EmbedBuilder()
-                .setColor(color)
-                .setAuthor({ name: `⚠️ REMINDER  ·  ${emoji} ${label}` })
-                .setTitle(title)
-                .setDescription(desc)
-                .setFooter({ text: `ID: ${event.id}` })
-                .setTimestamp();
-
-            const remindersChannel = interaction.guild.channels.cache.find(ch => ch.name === 'reminders');
-            if (!remindersChannel) return c.update({ content: '❌ #reminders channel not found.', components: [] });
-
-            const teamRole = interaction.guild.roles.cache.find(r => r.name === 'TEAM');
-            // No auto-delete — message stays permanently so no ghost pings
-            await remindersChannel.send({ content: teamRole ? `${teamRole}` : '', embeds: [embed] });
-            await c.update({ content: `✅ Reminder sent for **${event.type}** on **${dateStr}**.`, components: [] });
-        } catch { await interaction.editReply({ content: '⏱️ Timed out.', components: [] }); }
-    }
+        // Not deleted automatically, so there are no "ghost pings"
+        const embed = buildEventEmbed(event, { authorPrefix: '⚠️ REMINDER  ·  ' });
+        await channel.send({ ...teamMention(interaction.guild), embeds: [embed] });
+        await selection.update({
+            content: `✅ Reminder sent for **${event.type}** on **${normalizeDate(event.date)}**.`,
+            components: [],
+        });
+    },
 };
