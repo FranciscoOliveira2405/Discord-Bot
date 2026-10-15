@@ -164,17 +164,6 @@ Roles: **OWNER**, **MANAGERS** and **TEAM** (their IDs go in `.env`).
 Everything is stored in `data/bot.db` (SQLite). Back this file up if the data matters to you.
 The `data/` folder is created automatically and is never committed.
 
-## Upgrading from 1.x
-
-1. Copy the new files over your project and run `npm ci`.
-2. Add `OWNER_ROLE_ID`, `MANAGERS_ROLE_ID` and `TEAM_ROLE_ID` to your `.env`. The bot will not start without them.
-3. Run `npm run deploy` again, then check in **Server Settings > Integrations** that your managers can still see the restricted commands.
-4. Start the bot. Your existing data is kept: `v3xys.db` is renamed to `bot.db`, and players and absences are linked to their Discord IDs when the bot starts (look for `Member sync` in the console).
-
-Breaking changes: the CS2 server monitor was removed, permissions use role IDs instead of role names, and editing event notes now opens a pop-up form. See the [changelog](CHANGELOG.md) for everything.
-
----
-
 ## Development
 
 ```bash
