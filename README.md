@@ -1,7 +1,7 @@
 # Team Bot
 
-[![CI](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/ci.yml/badge.svg)](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/codeql.yml/badge.svg)](https://github.com/FranciscoOliveira2405/Discord-Bot/actions/workflows/codeql.yml)
+[![CI](https://github.com/FranciscoOliveira2405/Team-Discord-Bot/actions/workflows/ci.yml/badge.svg)](https://github.com/FranciscoOliveira2405/Team-Discord-Bot/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/FranciscoOliveira2405/Team-Discord-Bot/actions/workflows/codeql.yml/badge.svg)](https://github.com/FranciscoOliveira2405/Team-Discord-Bot/actions/workflows/codeql.yml)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
 ![discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?logo=discord&logoColor=white)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
@@ -97,8 +97,8 @@ In the Developer Portal:
 ### 2. Install
 
 ```bash
-git clone https://github.com/FranciscoOliveira2405/Discord-Bot.git
-cd Discord-Bot
+git clone https://github.com/FranciscoOliveira2405/Team-Discord-Bot.git
+cd Team-Discord-Bot
 npm install
 ```
 
@@ -179,7 +179,7 @@ The same checks run on every push and pull request through GitHub Actions. CodeQ
 ### Project structure
 
 ```text
-Discord-Bot/
+Team-Discord-Bot/
 ├─ commands/
 │  ├─ events/       schedule, reminder
 │  ├─ general/      announce

@@ -25,12 +25,12 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FranciscoOliveira2405/Discord-Bot.git"
+    "url": "git+https://github.com/FranciscoOliveira2405/Team-Discord-Bot.git"
   },
   "bugs": {
-    "url": "https://github.com/FranciscoOliveira2405/Discord-Bot/issues"
+    "url": "https://github.com/FranciscoOliveira2405/Team-Discord-Bot/issues"
   },
-  "homepage": "https://github.com/FranciscoOliveira2405/Discord-Bot#readme",
+  "homepage": "https://github.com/FranciscoOliveira2405/Team-Discord-Bot#readme",
   "engines": {
     "node": ">=20"
   },

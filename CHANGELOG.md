@@ -86,4 +86,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Initial release (Excel storage).
 
-[2.0.0]: https://github.com/FranciscoOliveira2405/Discord-Bot/releases/tag/v2.0.0
+[2.0.0]: https://github.com/FranciscoOliveira2405/Team-Discord-Bot/releases/tag/v2.0.0
